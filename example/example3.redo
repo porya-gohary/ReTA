@@ -1,0 +1,31 @@
+system {
+    // Define the time model (discrete or dense)
+    time_model.set(discrete);
+    // Define the event set
+    events.set(arrival, completion);    
+    resource {
+        p := processor( ncores = 4 );
+    }
+    workload {
+        // Define periodic tasks
+        // All deadlines are relative to the earliest arrival of the task
+        t1 := task( jitter= 10, period= 20, cost = I[1,8], deadline = 20, processor = p );
+        t2 := task( jitter= 20, period= 30, cost = I[3,5], deadline = 30, processor = p );
+    }
+    scheduler {
+        queue := ready_queue();
+        time := current_time();
+        queue.sort(deadline);
+        int x = p.available_instance();
+        if (x > 1){
+            return queue.front();
+        }
+
+        int latest_start = t1.next_deadline() - t1.wcet();
+        int next_idle_time = time + queue.front().wcet();
+        if (latest_start > next_idle_time){
+            return queue.front();
+        }
+        return nothing();
+    }
+}
