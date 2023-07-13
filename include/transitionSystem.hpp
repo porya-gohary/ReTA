@@ -114,6 +114,15 @@ public:
             // There should be at least one leaf state in the transition system
             assert(!leaves.empty());
 
+            // remove non-leaves states (free memory)
+            for (auto it = statesByID.begin(); it != statesByID.end();) {
+                if (std::find(leaves.begin(), leaves.end(), it->first) == leaves.end()) {
+                    it = statesByID.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+
             // filter unexplorable states
             auto explorableLeaves = findExplorableStates(leaves);
 
