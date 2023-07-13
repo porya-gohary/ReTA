@@ -3,7 +3,7 @@
 </h1>
 <h4 align="center">A versatile framework for modeling and analyzing arbitrary online scheduling policies for real-time systems</h4>
 <p align="center">
-  <a href="https://github.com/porya-gohary/ReDo/blob/master/LICENSE">
+  <a href="https://github.com/porya-gohary/ReTA/blob/master/LICENSE">
     <img src="https://img.shields.io/badge/License-GPLv3-blue.svg"
          alt="Gitter">
   </a>
@@ -39,11 +39,11 @@ sudo apt-get -y install libboost-dev
 First, clone the repository and change the current directory to the cloned repository:
 ```bash
 git clone https://github.com/porya-gohary/ReTA.git
-cd ReDo
+cd ReTA
 ```
 To compile the framework for the input codes written in `ReDo DSL`, follow the instructions below:
 
-Consider we want to compile the framework for the example code `example.redo` in the `examples` directory. The following commands should be executed:
+Consider we want to compile the framework for the example code `example1.redo` in the `examples` directory. The following commands should be executed:
 ```bash
 ./compile.sh -i ./example/example1.redo
 ```

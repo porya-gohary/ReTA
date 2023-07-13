@@ -19,7 +19,7 @@ const std::string version = "%prog 0.2\nCopyright (C) 2023 Pourya Gohari\n"
                             "This is free software: you are free to change and redistribute it.\n"
                             "There is NO WARRANTY, to the extent permitted by law.";
 const std::string usage = "usage: %prog [OPTIONS]...";
-const std::string desc = "ReDo: A versatile framework for modeling and analyzing arbitrary online scheduling policies for real-time systems";
+const std::string desc = "ReTA: A versatile framework for modeling and analyzing arbitrary online scheduling policies for real-time systems";
 static bool wantNaive;
 static bool wantDense = false;
 static double timeout = 14400;
