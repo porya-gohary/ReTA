@@ -108,11 +108,28 @@ mv -f systemModel.hpp ./include/models/
 # parsing completed
 echo -e "${GR}[+] Parsing completed.${NC}"
 
+# check if user want access to resource availability
+if grep -q "available_instance" "$input"; then
+    echo -e "${BL}--> Enabling resource availability access${NC}"
+    # enable resource availability access option in cmake
+    cmake_options="-DRESOURCE_ACCESS=ON"
+fi
+
 # compile ReTA framework
 echo -e "${BL}--> Compiling ReTA framework${NC}"
-rm -rf build/*
 mkdir -p build
+rm -rf build/*
 cd build || exit
-cmake ..
-make -j4
+
+# check for errors and print error message if any
+if ! cmake .. ${cmake_options}; then
+    echo -e "${RED}[!] CMake failed.${NC}"
+    exit 1
+fi
+
+if ! make -j4; then
+    echo -e "${RED}[!] Make failed.${NC}"
+    exit 1
+fi
+
 echo -e "${GR}[+] Done!${NC}"
