@@ -45,10 +45,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
-      - name: Test example1
+      - name: Build example1
         run: | 
           ./compile.sh -i ./example/example1.redo
 
       - name: Run example1
         run: | 
-          /build/reta
+          ./build/reta
+
+      - name: Build example3
+        run: | 
+          ./compile.sh -i ./example/example2.redo
+
+      - name: Run example3
+        run: | 
+          ./build/reta
