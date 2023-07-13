@@ -75,8 +75,6 @@ if command -v ${PYTHON}  &> /dev/null; then
     fi
 fi
 
-echo -e ${PYTHON}
-
 # check if cmake is installed
 if ! command -v cmake &> /dev/null; then
     echo -e "${RED}[\u2715] CMake could not be found${NC}"
