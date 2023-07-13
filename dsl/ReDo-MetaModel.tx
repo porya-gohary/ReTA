@@ -40,7 +40,7 @@ Queue_function:
 // queue functions are return values
 Queue_functions:
     (
-    (name='front' '(' ')& !(DOT)') | (name='back' '(' ')') | (name='length' '(' ')') |
+    (name='front' '(' ')'!DOT) | (name='back' '(' ')') | (name='length' '(' ')') |
     (name='at' '(' 'index' '=' index=Variable_value ')') | (name='front().wcet' '(' ')')
     )
 ;
