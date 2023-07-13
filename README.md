@@ -38,7 +38,7 @@ sudo apt-get -y install libboost-dev
 ## 📋 Build Instructions
 First, clone the repository and change the current directory to the cloned repository:
 ```bash
-git clone https://github.com/porya-gohary/ReDo.git
+git clone https://github.com/porya-gohary/ReTA.git
 cd ReDo
 ```
 To compile the framework for the input codes written in `ReDo DSL`, follow the instructions below:
@@ -50,13 +50,13 @@ Consider we want to compile the framework for the example code `example.redo` in
 The compiled code will be generated in the `build` directory. To run the compiled code, run the following command:
 ```bash
 cd build
-./redo
+./reta
 ```
 
 ## ⚙️ Usage
-The options of the analysis are as follows (`./redo -h`):
+The options of the analysis are as follows (`./reta -h`):
 ```
-Usage: redo [OPTIONS]...
+Usage: reta [OPTIONS]...
 
 Options:
   -l TIMEOUT, --time-limit=TIMEOUT
