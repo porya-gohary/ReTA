@@ -221,7 +221,6 @@ public:
             auto rq = queue<Time>(jobsByID, q);
 #ifdef RESOURCE_ACCESS
             // make available resource set based on the selected ready queue
-			std::cout << "Here" << std::endl;
             auto rangeOfAvailableResources = makeAvailableResourcesMap(rq, s);
             auto allAvailableResourcesCombinations = makeAllCombinationsOfAvailableResources(rangeOfAvailableResources);
             for (auto availableResources: allAvailableResourcesCombinations) {
