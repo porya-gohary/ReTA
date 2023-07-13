@@ -108,8 +108,8 @@ mv -f systemModel.hpp ./include/models/
 # parsing completed
 echo -e "${GR}[+] Parsing completed.${NC}"
 
-# compile ReDo framework
-echo -e "${BL}--> Compiling ReDo framework${NC}"
+# compile ReTA framework
+echo -e "${BL}--> Compiling ReTA framework${NC}"
 rm -rf build/*
 mkdir -p build
 cd build || exit
