@@ -1,5 +1,9 @@
 <h1 align="center">
+  <br>
+  <img src="img/logo.png" alt="ReTA" width="330">
+  <br>
   ReTA framework
+  <br>
 </h1>
 <h4 align="center">A versatile framework for modeling and analyzing arbitrary online scheduling policies for real-time systems</h4>
 <p align="center">
