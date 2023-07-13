@@ -1,0 +1,13 @@
+# Project exclude paths
+debug/
+build/
+cmake-build-debug/
+scripts/output/
+.vscode/
+.idea/
+__pycache__/
+
+# Project exclude file types
+scripts/*.csv
+*.o
+*~

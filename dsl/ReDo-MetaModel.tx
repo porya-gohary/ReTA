@@ -1,0 +1,264 @@
+System:
+  'system' '{'
+    time_model=Time_model
+    events=Events
+    resources=Resources
+    workloads=Workloads
+    scheduler=Scheduler
+  '}'
+;
+
+Time_model:
+    ('time_model' DOT 'set' '('  model=time_models ')' ';')?
+;
+
+time_models:
+    'discrete' | 'dense'
+;
+
+Events:        
+    ('events' DOT 'set' '(' event+=Event[','] ')' ';')?
+;
+
+Event:
+    'arrival' | 'completion' | 'all' | FLOAT    
+;
+
+Queue_command:
+    queue=[Ready_queue_declaration|ID] DOT command=Queue_commands ';'
+;
+
+// queue commands are NOR return values
+Queue_commands:
+    (name='sort' '(' ('by' '=')? key=Keys ')')
+;
+
+Queue_function:
+    (queue=[Ready_queue_declaration|ID] DOT func=Queue_functions)
+;
+
+// queue functions are return values
+Queue_functions:
+    (
+    (name='front' '(' ')& !(DOT)') | (name='back' '(' ')') | (name='length' '(' ')') |
+    (name='at' '(' 'index' '=' index=Variable_value ')') | (name='front().wcet' '(' ')')
+    )
+;
+
+Resource_function:
+    (resource=[Resource|ID] DOT func=Resource_functions)
+;
+
+Resource_functions:
+    (
+    (name='available_instance' '(' ')')
+    )
+;
+
+Keys:
+    'arrival_min' | 'arrival_max' | 'deadline' | 'cost_min' | 'cost_max'
+;
+
+Resources:
+    'resource' '{'
+        resource+=Resource
+    '}'
+;
+
+Resource:
+    name=Valid_ID DECLARE_OPERATOR  'processor' '(' ('ncores' '=')? ncores=INT ')' ';'
+;
+
+Workloads:
+    'workload' '{'
+        workload*=Task
+        workload*=Job
+    '}'
+;
+
+Task:
+    name=Valid_ID DECLARE_OPERATOR type='task' '(' 'jitter' '=' jitter=FLOAT ',' 'period' '=' period=FLOAT ','
+     'cost' '=' 'I' '[' cost_low=FLOAT ',' cost_up =FLOAT ']' ',' 'deadline' '=' deadline=FLOAT ','
+     ('priority' '='priority=INT ',')? 'processor' '=' processor=[Resource] ')' ';'
+;
+
+Job:
+    name=Valid_ID DECLARE_OPERATOR type='job' '(' 'arrival' '=' 'I' '[' arrival_low=FLOAT ',' arrival_up=FLOAT ']' ','
+     'cost' '=' 'I' '[' cost_low=FLOAT ',' cost_up = FLOAT ']' ',' 'deadline' '=' deadline=FLOAT ','
+     ('priority' '='priority=INT ',')? 'processor' '=' processor=[Resource] ')' ';'
+;
+
+Task_function:
+    (task=[Task|ID] DOT func=Task_functions)
+;
+
+// queue functions are return values
+Task_functions:
+    (
+    (name='next_deadline' '(' ')') | (name='wcet' '(' ')')
+    )
+;
+
+
+Scheduler:
+    'scheduler' '{'
+        commands*=Commands
+    '}'
+;
+
+Commands:
+    Queue_command | Variable_declaration | Variable_assignment | Return |
+    Use_file | Ready_queue_declaration | If_statement | Task_function
+;
+
+Ready_queue_declaration:
+    name=Valid_ID DECLARE_OPERATOR 'ready_queue()' ';'
+;
+
+//Current_time_declaration:
+//    name=Valid_ID ':=' 'current_time()' ';'
+//;
+
+Current_time_function:
+    name='current_time' '()'
+;
+
+
+Return:
+    'return' (value=Variable_value ';' | func=Queue_function ';' | nul=Nothing ';')
+;
+
+Nothing:
+    'nothing' '()'
+;
+
+Use_file:
+    'import_file' '(' file=STRING ')' ';'
+;
+
+
+type_specifier:
+   (    'string'
+    |   'int'
+    |   'long'
+    |   'float'
+    |   'double')
+;
+
+
+Variable_declaration:
+    (
+    (var=Variable (ASSIGNMENT_OPERATOR rhs=Variable_value )? ';')
+    |
+    (var=Variable ASSIGNMENT_OPERATOR rhs=Operation ';')
+    |
+    (var=Variable ASSIGNMENT_OPERATOR rhs=Queue_function ';')
+    |
+    (var=Internal_variable DECLARE_OPERATOR rhs=Current_time_function ';')
+    |
+    (var=Variable ASSIGNMENT_OPERATOR rhs=Resource_function ';')
+    )
+;
+
+Variable_assignment:
+    (
+    (ref=[Variable|FQN] ASSIGNMENT_OPERATOR rhs=Variable_value ';')
+    |
+    (ref=[Variable|FQN] ASSIGNMENT_OPERATOR rhs=Queue_function ';')
+    |
+    (ref=[Variable|FQN] ASSIGNMENT_OPERATOR rhs=Resource_function ';')
+    |
+    (ref=[Variable|FQN] ASSIGNMENT_OPERATOR rhs=Task_function ';')
+    |
+    (ref=[Variable|FQN] ASSIGNMENT_OPERATOR rhs=Current_time_function ';')
+    |
+    (ref=[Variable|FQN] ASSIGNMENT_OPERATOR rhs=Operation ';')
+    )
+;
+
+Variable_value:
+    (value = Typed_literal | (ref=[Variable|FQN] | ref=[Internal_variable|FQN]))
+;
+
+Typed_literal:
+    FLOAT | STRING
+;
+
+Variable:
+    var_type=type_specifier name=Valid_ID
+;
+
+Internal_variable:
+    name=Valid_ID
+;
+
+Operation:
+    (
+    (lhs=Variable_value operator=ARITHMETIC_OPERATOR rhs=Operation)
+    |
+    (lhs=Task_function operator=ARITHMETIC_OPERATOR rhs=Operation)
+    |
+    (lhs=Queue_function operator=ARITHMETIC_OPERATOR rhs=Operation)
+    |
+    (lhs=Current_time_function operator=ARITHMETIC_OPERATOR rhs=Operation)
+    |
+    rhs=Variable_value
+    |
+    rhs=Task_function
+    |
+    rhs=Queue_function
+    |
+    rhs=Current_time_function
+    )
+;
+
+If_statement:
+    'if' '(' condition=relational_expression ')' '{' then_commands*=Commands '}' 
+    ('else' (('{' else_commands*=Commands '}') | (else_commands=Commands)))?
+    |
+    'if' '(' condition=relational_expression ')' then_commands=Commands 
+    ('else' (('{' else_commands*=Commands '}') | (else_commands=Commands)))?
+
+;
+
+
+relational_expression:
+    lhs=Expression ((specifier=relational_specifier | specifier= equality_specifier) rhs=Expression)?
+;
+
+Expression:
+    (Variable_value | Queue_function | Current_time_function | Resource_function)
+;
+
+equality_specifier:
+    '==' | '!='
+;
+
+relational_specifier:
+    '<' | '>' | '<=' | '>='
+;
+
+Valid_ID:
+    !Keyword ID 
+;
+
+FQN: ID !('.' /[a-zA-Z]+/ ) !('()');
+
+Keyword: 
+    'import_file' | 'return' | 'if' | 'else' | 'time_model' | 'events' | 
+    'resource' | 'workload' | 'scheduler' | 'ready_queue' | 'current_time' |
+    'task' | 'job' | 'processor' | 'ncores' | 'jitter' | 'period' | 'cost' |
+    'deadline' | 'priority' | 'arrival' | 'by' | 'sort' | 'front' | 'back' |
+    'length' | 'at' | 'index' | 'string' | 'int' | 'long' | 'float' | 'double' |
+    'true' | 'false' | 'null' | 'Time' | 'available_instance'| DOT | 'nothing' 
+;
+
+// Punctuation
+DECLARE_OPERATOR         : ':=';
+ASSIGNMENT_OPERATOR    : '=';
+DOT                    : '.';
+ARITHMETIC_OPERATOR    : '+' | '-' | '*' | '/' | '%';
+
+Comment:
+  /\/\/.*$/
+;
