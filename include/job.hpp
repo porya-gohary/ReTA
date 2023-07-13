@@ -55,6 +55,7 @@ class job {
     typedef Time Priority; // For fixed priority scheduling policies
 
 private:
+    std::string taskName;
     std::string name;
     Interval<Time> arrival;
     Interval<Time> cost;
@@ -95,6 +96,8 @@ public:
                                                                                            assignedProcessorSet(
                                                                                                    assignedProcessorSet),
                                                                                                    taskPeriod(taskPeriod){
+        // cut the string before , and assign it to task name
+        taskName = name.substr(0, name.find(","));
         computeHash();
     }
 
@@ -106,6 +109,8 @@ public:
                                                                                            assignedProcessorSet(
                                                                                                    assignedProcessorSet),
                                                                                                    taskPeriod(taskPeriod){
+        // cut the string before , and assign it to task name
+        taskName = name.substr(0, name.find(","));
         computeHash();
     }
 //    job(unsigned long tid, unsigned long sid, Interval<Time> arrival, Interval<Time> cost, Time deadline)
@@ -167,6 +172,10 @@ public:
 
     unsigned int getAssignedProcessorSet() const {
         return assignedProcessorSet;
+    }
+
+    std::string getTaskName() const {
+        return taskName;
     }
 
     bool exceedsDeadline(Time t) const {
