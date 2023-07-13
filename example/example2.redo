@@ -15,6 +15,6 @@ system {
     scheduler {
         q := ready_queue();
         q.sort(deadline);
-        return q.back();
+        return q.front();
     }
 }
