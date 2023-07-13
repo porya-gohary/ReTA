@@ -55,7 +55,7 @@ jobs:
 
       - name: Build example3
         run: | 
-          ./compile.sh -i ./example/example2.redo
+          ./compile.sh -i ./example/example3.redo
 
       - name: Run example3
         run: | 
