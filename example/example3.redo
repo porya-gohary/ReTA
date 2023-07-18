@@ -23,7 +23,7 @@ system {
 
         int latest_start = t1.next_deadline() - t1.wcet();
         int next_idle_time = time + queue.front().wcet();
-        if (latest_start > next_idle_time){
+        if (latest_start >= next_idle_time){
             return queue.front();
         }
         return nothing();
