@@ -44,6 +44,7 @@ private:
     bool beNaive = false;
     cpuTime timer;
     const jobSet jobs;
+	jobSet jobsByEarliestArrival;
     const double timeout;
     const events<Time> systemEvents;
     const std::vector<unsigned int> resourceSet;
@@ -98,6 +99,10 @@ public:
         for (auto &s: jobs) {
             jobsByID.emplace(s.getID(), s);
         }
+		jobsByEarliestArrival = jobs;
+		std::sort(jobsByEarliestArrival.begin(), jobsByEarliestArrival.end(), [](job<Time> a, job<Time> b) {
+			return a.getEarliestArrival() < b.getEarliestArrival();
+		});
         schedulingPolicy = scheduler<Time>(jobsByID);
 
     }
@@ -471,7 +476,7 @@ public:
         readyQueue certainReleasedJobs;
         readyQueue allReadyJobs;
 
-        for (auto &seg: jobs) {
+        for (auto &seg: jobsByEarliestArrival) {
             // check if the job is already dispatched
             log<LOG_DEBUG>("Checking job %1%") % seg.getID();
             if (s.isDispatched(seg)) {
@@ -489,6 +494,8 @@ public:
                 }
             } else {
                 log<LOG_DEBUG>(" -> Job %1% is not released") % seg.getID();
+				log<LOG_DEBUG>(" -> No need to check further");
+				break;
             }
 
             // make queue of certain ready jobs
