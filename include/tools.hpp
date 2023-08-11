@@ -38,27 +38,11 @@ namespace tools {
         return h;
     }
 
-    //Function to calculate observation window
-    template<typename Time>
-    Time calObservationWindow(std::vector<task<Time>> tasks, std::vector<job<Time>> segments) {
-        Time h = calHyperperiod(tasks);
-        log<LOG_DEBUG>("Hyperperiod: %1%") % h;
-        // find the maximum release time of all single segments
-        long long maxReleaseTime = 0;
-        std::for_each(segments.begin(), segments.end(), [&maxReleaseTime](const job<Time> &s) {
-            if (s.getArrival().max() > maxReleaseTime) {
-                maxReleaseTime = s.getArrival().max();
-            }
-        });
-        assert(h > 0);
-        return std::floor(std::max(h, maxReleaseTime) / h) * h;
-    }
-
     //Function to generate all segments in the system
     template<typename Time>
     std::vector<job<Time>> generateSegments(std::vector<task<Time>> tasks, std::vector<job<Time>> segments) {
         std::vector<job<Time>> generatedSegments;
-        observationWindow = calObservationWindow(tasks, segments);
+        observationWindow = calHyperperiod(tasks);
         for (const auto &t_instance: tasks) {
             unsigned long jobCounter = 0;
             for (long long i = 0; i < observationWindow / t_instance.getPeriod(); i++) {
