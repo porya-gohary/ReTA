@@ -23,25 +23,31 @@ struct node {
 };
 
 struct edge {
-    edge(unsigned long src, unsigned long dst, std::string label)
+    edge(unsigned long src, unsigned long dst, std::string label, std::string queue="")
             : fromID(src), toID(dst), label(label) {
+        if (queue != "") {
+            this->queue = "\\n" + queue;
+        }
     }
 
     unsigned long fromID;
     unsigned long toID;
     std::string label;
+    std::string queue;
 };
 
 class dag {
 private:
     std::vector<std::shared_ptr<node>> nodes;
     std::vector<std::shared_ptr<edge>> edges;
+    // a vector to keep ID of the leaves states
+    std::vector<unsigned long> leaves;
     unsigned long numNodes = 0;
 
 public:
     dag() = default;
 
-    void addNode(long parentId, unsigned long timeStamp, std::string label, std::string edgeLabel) {
+    void addNode(long parentId, unsigned long timeStamp, std::string label, std::string edgeLabel, std::string edgeQueue="") {
         std::shared_ptr<node> n = std::make_shared<node>(numNodes, timeStamp, label);
         nodes.push_back(n);
         numNodes++;
@@ -57,13 +63,21 @@ public:
                 // add child to parent
                 parent->children.push_back(n->id);
                 // add edge
-                std::shared_ptr<edge> e = std::make_shared<edge>(parent->id, n->id, edgeLabel);
+                std::shared_ptr<edge> e = std::make_shared<edge>(parent->id, n->id, edgeLabel, edgeQueue);
                 edges.push_back(e);
             } else {
                 log<LOG_CRITICAL>("Parent node in the DAG not found!");
                 assert(false);
             }
         }
+
+        // add new node id to leaves vector
+        leaves.push_back(n->id);
+        // remove its parent from the leaves vector
+        if (parentId != -1) {
+            leaves.erase(std::remove(leaves.begin(), leaves.end(), parentId), leaves.end());
+        }
+
 
         // sort nodes by timestamp
         std::sort(nodes.begin(), nodes.end(),
@@ -101,6 +115,9 @@ public:
             log<LOG_CRITICAL>("Source node in the DAG not found!");
             assert(false);
         }
+
+        // remove the source node id from the leaves vector
+        leaves.erase(std::remove(leaves.begin(), leaves.end(), source), leaves.end());
     }
 
     void updateNodeLabel(unsigned long id, std::string label) {
@@ -118,12 +135,6 @@ public:
 
     // return the IDs of the leaves
     std::vector<unsigned long> getLeaves() {
-        std::vector<unsigned long> leaves;
-        for (auto n: nodes) {
-            if (n->children.empty()) {
-                leaves.push_back(n->id);
-            }
-        }
         return leaves;
     }
 
@@ -141,13 +152,20 @@ public:
     }
 
     // check if we have edge we are looking for
-    bool hasEdge(unsigned long fromID, std::string label) {
-        for (auto e: edges) {
-            if (e->fromID == fromID && e->label == label) {
-                return true;
-            }
+    bool hasEdge(unsigned long fromID, const std::string& label, std::string queue="") {
+
+        auto e = std::find_if(edges.begin(), edges.end(), [fromID, label](std::shared_ptr<edge> const &tempEdge) {
+            return tempEdge->fromID == fromID && tempEdge->label == label;
+        });
+
+        if (e != edges.end()) {
+            // add queue to the label
+            (*e)->queue += " " + queue;
+            return true;
         }
+
         return false;
+
     }
 
     // generate a dot file
@@ -162,7 +180,7 @@ public:
             file << "\t" << n->id << " [label=\"" << n->label << "\"];" << std::endl;
         }
         for (auto e: edges) {
-            file << "\t" << e->fromID << " -> " << e->toID << " [label=\"" << e->label << "\"];" << std::endl;
+            file << "\t" << e->fromID << " -> " << e->toID << " [label=\"" << e->label << (e->queue)  << "\"];" << std::endl;
         }
         file << "}" << std::endl;
         file.close();
