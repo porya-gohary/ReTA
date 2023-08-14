@@ -25,7 +25,7 @@ namespace tools {
 
     // Function to return LCM of two numbers
     long long lcm(long long a, long long b) {
-        return (a / gcd(a, b)) * b;
+        return (a * b) / gcd(a, b);
     }
 
     //Function to calculate hyperperiod
