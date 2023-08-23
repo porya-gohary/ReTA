@@ -176,6 +176,8 @@ def scheduler_commands_handler(commands, line_tabs="\t\t"):
         elif c.__class__.__name__ == "If_statement":
             condition_handler(c, line_tabs)
 
+        elif c.__class__.__name__ == "Loop_statement":
+            loop_handler(c, line_tabs)
 
 def variable_handler(command, line_tabs):
     """variable declaration and assignment handler"""
@@ -242,7 +244,7 @@ def variable_handler(command, line_tabs):
             cpp_scheduler_template[14] += line_tabs + command.var.var_type + \
                                           " " + command.var.name + ";" + "\n"
 
-    elif command.__class__.__name__ == "Variable_assignment":
+    elif command.__class__.__name__ == "Variable_assignment" or command.__class__.__name__ == "Variable_update":
         if command.rhs.__class__.__name__ == "Queue_function":
             if command.rhs.func.name == "length":
                 cpp_scheduler_template[14] += line_tabs + \
@@ -406,6 +408,40 @@ def condition_handler(command, line_tabs):
         scheduler_commands_handler(command.else_commands, line_tabs + "\t")
     cpp_scheduler_template[14] += line_tabs + "}" + "\n"
 
+def loop_handler(command, line_tabs):
+    """loop statement handler"""
+    cpp_scheduler_template[14] += line_tabs + "for ("
+
+    # first handle the variable declaration
+    if command.init is not None:
+        variable_handler(command.init, "")
+        # remove the next line character
+        cpp_scheduler_template[14] = cpp_scheduler_template[14][:-1]
+    else:
+        print("Error: invalid loop variable declaration!")
+        exit(1)
+
+    # then handle the condition
+    if command.condition.rhs is not None:
+        cpp_scheduler_template[14] += expression_handler(command.condition.lhs) + " " + \
+                                      command.condition.specifier + " " + \
+                                      expression_handler(command.condition.rhs) + ";"
+    elif command.condition.rhs is None:
+        cpp_scheduler_template[14] += expression_handler(command.condition.lhs) + ";"
+
+    # then handle the update
+    if command.update is not None:
+        variable_handler(command.update, "")
+        cpp_scheduler_template[14] = cpp_scheduler_template[14][:-2]
+        cpp_scheduler_template[14] +=  ") {" + "\n"
+    else:
+        print("Error: invalid loop update!")
+        exit(1)
+
+    # if the condition is true, then execute the commands
+    scheduler_commands_handler(command.commands, line_tabs + "\t")
+
+    cpp_scheduler_template[14] += line_tabs + "}" + "\n"
 
 def expression_handler(expression):
     """handles expressions and returns the corresponding C++ code"""

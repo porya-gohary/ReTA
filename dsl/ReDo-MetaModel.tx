@@ -108,7 +108,7 @@ Scheduler:
 
 Commands:
     Queue_command | Variable_declaration | Variable_assignment | Return |
-    Use_file | Ready_queue_declaration | If_statement | Task_function
+    Use_file | Ready_queue_declaration | If_statement | Task_function | Loop_statement
 ;
 
 Ready_queue_declaration:
@@ -213,12 +213,24 @@ Operation:
 ;
 
 If_statement:
-    'if' '(' condition=relational_expression ')' '{' then_commands*=Commands '}' 
+    'if' '(' condition=relational_expression ')' '{' then_commands*=Commands '}'
     ('else' (('{' else_commands*=Commands '}') | (else_commands=Commands)))?
     |
-    'if' '(' condition=relational_expression ')' then_commands=Commands 
+    'if' '(' condition=relational_expression ')' then_commands=Commands
     ('else' (('{' else_commands*=Commands '}') | (else_commands=Commands)))?
 
+;
+
+Loop_statement:
+    'for' '(' ((init=Variable_declaration) | (init=Variable_assignment))  (condition=relational_expression ';') update=Variable_update  '{' commands*=Commands '}'
+;
+
+Variable_update:
+    (
+    (ref=[Variable|FQN] ASSIGNMENT_OPERATOR rhs=Variable_value ')' )
+    |
+    (ref=[Variable|FQN] ASSIGNMENT_OPERATOR rhs=Operation ')' )
+    )
 ;
 
 
