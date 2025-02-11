@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <vector>
 #include "time.hpp"
 #include "OptionParser.h"
 #include "formattedLog.hpp"
