@@ -30,12 +30,12 @@ To install the required packages, run the following command:
 pip install -r requirements.txt
 ```
 ### C++:
-- A modern C++ compiler supporting the **C++17 standard**. Recent versions of `clang` and `g++` on Linux is known to work.
-- The [CMake](https://cmake.org) build system. For install using `apt` (Ubuntu, Debian...):
+- A modern C++ compiler with support for the **C++17 standard**. Recent versions of `clang` and `g++` on Linux is known to work.
+- The [CMake](https://cmake.org) build system. For installation using `apt` (Ubuntu, Debian...):
 ```bash
 sudo apt-get -y install cmake 
 ```
-- The [Boost](https://www.boost.org) library. For install using `apt` (Ubuntu, Debian...):
+- The [Boost](https://www.boost.org) library. For installation using `apt` (Ubuntu, Debian...):
 ```bash
 sudo apt-get -y install libboost-dev
 ```
@@ -78,13 +78,13 @@ Options:
 ## 🗄️ Output Files
 The output files are generated in the current directory. The output files are as follows:
 
-* `out.csv`: The output file containing the response-times for each job.
-* `out.dot`: The output file containing the graph of the explored states.
+* `out.csv`: Contains the response times for each job.
+* `out.dot`: Represents the graph of explored states. *(Requires `COLLECT_TLTS_GRAPH` to be enabled at compile time.)*
 
 ## 🌱 Contribution
 With your feedback and conversation, you can assist me in developing this framework.
 * Open pull request with improvements
-* Discuss feedbacks and bugs in issues
+* Discuss feedback and bugs in issues
 
 ## 📜 License
 Copyright © 2023 [Pourya Gohari](https://pourya-gohari.ir)
