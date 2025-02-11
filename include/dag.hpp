@@ -145,18 +145,6 @@ public:
         return leaves;
     }
 
-    unsigned long getLeafStateWithSmallestTimeStamp() {
-        for (const auto &n: nodes) {
-			if (n.second->children.empty()) {
-				return n.second->id;
-			}
-        }
-        return -1;
-    }
-
-    unsigned long getStateWithSmallestTimeStamp() {
-        return nodes[0]->id;
-    }
 
     // check if we have edge we are looking for
     bool hasEdge(unsigned long fromID, const std::string& label, std::string queue="") {
