@@ -6,6 +6,7 @@
 #include <memory>
 #include <deque>
 #include <unordered_map>
+#include <unordered_set>
 #include <optional>
 #include <algorithm>
 #include "state.hpp"
@@ -119,14 +120,17 @@ public:
             // There should be at least one leaf state in the transition system
             assert(!leaves.empty());
 
-            // remove non-leaves states (free memory)
-            for (auto it = statesByID.begin(); it != statesByID.end();) {
-                if (std::find(leaves.begin(), leaves.end(), it->first) == leaves.end()) {
-                    it = statesByID.erase(it);
-                } else {
-                    ++it;
-                }
-            }
+			// Use an unordered_set for faster lookups
+			std::unordered_set<stateID> leafSet(leaves.begin(), leaves.end());
+
+			// remove non-leaves states (free memory)
+			for (auto it = statesByID.begin(); it != statesByID.end();) {
+				if (leafSet.find(it->first) == leafSet.end()) {
+					it = statesByID.erase(it);
+				} else {
+					++it;
+				}
+			}
 
 #ifndef COLLECT_TLTS_GRAPH
 			// free memory
@@ -188,7 +192,9 @@ public:
     }
 
     void makeInitialStates() {
-        // use set to avoid duplicate event times
+		// Estimate the number of states and preallocate memory accordingly.
+		statesByID.reserve(jobs.size() * 2);
+        // use a set to avoid duplicate event times
         std::set<Time> eventTimes;
         if (systemEvents.isAllEvent()) {
             for (long long i = 1; i <= tools::observationWindow; i++) {
@@ -445,19 +451,20 @@ public:
     }
 
     // find explorable states
-    std::vector<stateID> findExplorableStates(std::vector<stateID> &stateIDs) {
-        std::vector<stateID> explorableStates;
-        for (auto &sID: stateIDs) {
-            auto s = statesByID.find(sID);
-            if (s->second.getNumberOfDispatchedJobs() != jobs.size()) {
-                explorableStates.push_back(sID);
-            }
+std::vector<stateID> findExplorableStates(std::vector<stateID> &stateIDs) {
+    std::vector<stateID> explorableStates;
+    explorableStates.reserve(stateIDs.size());
+    for (auto &sID: stateIDs) {
+        auto s = statesByID.find(sID);
+        if (s->second.getNumberOfDispatchedJobs() != jobs.size()) {
+            explorableStates.emplace_back(sID);
         }
-        if (explorableStates.empty()) {
-            completed = true;
-        }
-        return explorableStates;
     }
+    if (explorableStates.empty()) {
+        completed = true;
+    }
+    return explorableStates;
+}
 
     // update the response time of the job
     void updateResponseTime(jobID sid, Interval<Time> rt) {
@@ -573,11 +580,11 @@ public:
     }
 
 
-    readyQueues makePowerset(readyQueue &queue) {
-        readyQueues powerset;
-        readyQueue emptySet;
+readyQueues makePowerset(readyQueue &queue) {
+    readyQueues powerset;
+    powerset.reserve(1 << queue.size()); // Reserve space for all subsets
+    powerset.push_back({}); // Add the empty set
 
-        powerset.push_back(emptySet);
         for (std::size_t k = 0; k <= queue.size(); ++k) {
             for_each_combination(queue.begin(), queue.begin() + k, queue.end(),
                                  [&](auto first, auto last) {
