@@ -8,6 +8,7 @@ include_directories(include)
 
 option(RESOURCE_ACCESS "Enable access to resource availability" OFF)
 option(DEBUG "Enable debugging" OFF)
+option(COLLECT_TLTS_GRAPH "Enable the collection of time-labeled transition systems" OFF)
 
 if (DEBUG)
     set(CMAKE_BUILD_TYPE Debug)

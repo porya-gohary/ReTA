@@ -121,5 +121,7 @@ int main(int argc, char **argv) {
         std::cout << ts.getFormattedOutput().str();
 
     ts.makeCSVFile();
+#ifdef CONFIG_TLTS_GRAPH
     ts.makeDotFile();
+#endif
 }

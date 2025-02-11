@@ -53,7 +53,7 @@ private:
     scheduler<Time> schedulingPolicy;
     std::string jobFile;
 
-    // used in result of the analysis
+    // used in the result of the analysis
     bool aborted = false;
     bool completed = false;
     bool timedOut = false;
@@ -127,6 +127,11 @@ public:
                     ++it;
                 }
             }
+
+#ifndef COLLECT_TLTS_GRAPH
+			// free memory
+			transitionStructure.freeMemory();
+#endif
 
             // filter unexplorable states
             auto explorableLeaves = findExplorableStates(leaves);

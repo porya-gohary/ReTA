@@ -48,7 +48,7 @@ public:
     dag() = default;
 
     void addNode(long parentId, unsigned long timeStamp, std::string label, std::string edgeLabel, std::string edgeQueue="") {
-        std::shared_ptr<node> n = std::make_shared<node>(numNodes, timeStamp, label);
+		std::shared_ptr<node> n = std::make_shared<node>(numNodes, timeStamp, std::move(label));
         nodes.push_back(n);
         numNodes++;
         if (parentId != -1) {
@@ -63,7 +63,7 @@ public:
                 // add child to parent
                 parent->children.push_back(n->id);
                 // add edge
-                std::shared_ptr<edge> e = std::make_shared<edge>(parent->id, n->id, edgeLabel, edgeQueue);
+				std::shared_ptr<edge> e = std::make_shared<edge>(parent->id, n->id, std::move(edgeLabel), std::move(edgeQueue));
                 edges.push_back(e);
             } else {
                 log<LOG_CRITICAL>("Parent node in the DAG not found!");
@@ -105,7 +105,7 @@ public:
                 // add source to destination
                 destinationNode->parents.push_back(sourceNode->id);
                 // add edge
-                std::shared_ptr<edge> e = std::make_shared<edge>(sourceNode->id, destinationNode->id, edgeLabel);
+				std::shared_ptr<edge> e = std::make_shared<edge>(sourceNode->id, destinationNode->id, std::move(edgeLabel));
                 edges.push_back(e);
             } else {
                 log<LOG_CRITICAL>("Destination node in the DAG not found!");
@@ -119,6 +119,18 @@ public:
         // remove the source node id from the leaves vector
         leaves.erase(std::remove(leaves.begin(), leaves.end(), source), leaves.end());
     }
+
+	void freeMemory() {
+		// remove the edges that are not connected to the leaves
+		edges.erase(std::remove_if(edges.begin(), edges.end(), [&](std::shared_ptr<edge> const &tempEdge) {
+			return std::find(leaves.begin(), leaves.end(), tempEdge->fromID) == leaves.end();
+		}), edges.end());
+
+		// if we don't need all the nodes, remove the none-leaf nodes from the node vector
+		nodes.erase(std::remove_if(nodes.begin(), nodes.end(), [](std::shared_ptr<node> const &tempNode) {
+			return !tempNode->children.empty();
+		}), nodes.end());
+	}
 
     void updateNodeLabel(unsigned long id, std::string label) {
         auto x = std::find_if(nodes.begin(), nodes.end(), [id](std::shared_ptr<node> const &tempNode) {
