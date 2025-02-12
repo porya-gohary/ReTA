@@ -388,15 +388,17 @@ public:
         // otherwise, we can ignore it
 
         // 1. found all the jobs that will be dispatched by the current ready queues
-        std::vector<jobID> dispatchedJobs;
+        std::unordered_set<jobID> dispatchedJobs;
+		// reserve memory for the dispatched jobs
+		dispatchedJobs.reserve(jobs.size());
         for (const auto &q: queues) {
             auto rq = queue<Time>(jobsByID, q);
             auto rangeOfAvailableResources = makeAvailableResourcesMap(rq, fromState);
             auto allAvailableResourcesCombinations = makeAllCombinationsOfAvailableResources(rangeOfAvailableResources);
-            for (auto availableResources: allAvailableResourcesCombinations) {
+            for (const auto &availableResources: allAvailableResourcesCombinations) {
                 auto selectedJob = schedulingPolicy.callScheduler(rq, availableResources, fromState.getTimeStamp());
                 if (selectedJob != std::nullopt) {
-                    dispatchedJobs.push_back(selectedJob.value());
+                    dispatchedJobs.insert(selectedJob.value());
                 }
             }
         }
@@ -407,15 +409,17 @@ public:
         readyQueues nextStateQueues = makeReadyQueues(newState);
 
         // 2. found all the jobs that will be dispatched by the next ready queues
-        std::vector<jobID> nextDispatchedJobs;
+        std::unordered_set<jobID> nextDispatchedJobs;
+		// reserve memory for the dispatched jobs
+		nextDispatchedJobs.reserve(jobs.size());
         for (const auto &q: nextStateQueues) {
             auto rq = queue<Time>(jobsByID, q);
             auto rangeOfAvailableResources = makeAvailableResourcesMap(rq, newState);
             auto allAvailableResourcesCombinations = makeAllCombinationsOfAvailableResources(rangeOfAvailableResources);
-            for (auto availableResources: allAvailableResourcesCombinations) {
+            for (const auto &availableResources: allAvailableResourcesCombinations) {
                 auto selectedJob = schedulingPolicy.callScheduler(rq, availableResources, newState.getTimeStamp());
                 if (selectedJob != std::nullopt) {
-                    nextDispatchedJobs.push_back(selectedJob.value());
+                    nextDispatchedJobs.insert(selectedJob.value());
                 }
             }
         }
