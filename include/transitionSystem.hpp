@@ -198,21 +198,21 @@ public:
         std::set<Time> eventTimes;
         if (systemEvents.isAllEvent()) {
             for (long long i = 1; i <= tools::observationWindow; i++) {
-                eventTimes.insert(i);
+                eventTimes.emplace(i);
             }
         } else {
             if (systemEvents.isArrivalEvent()) {
                 for (auto &s: jobs) {
                     if (s.getArrival().from() != 0)
-                        eventTimes.insert(s.getArrival().from());
+                        eventTimes.emplace(s.getArrival().from());
                     if (s.getArrival().until() != 0)
-                        eventTimes.insert(s.getArrival().until());
+                        eventTimes.emplace(s.getArrival().until());
                 }
             }
             if (systemEvents.getTimes().size() > 0) {
                 for (auto &t: systemEvents.getTimes()) {
                     if (t != 0)
-                        eventTimes.insert(t);
+                        eventTimes.emplace(t);
                 }
             }
 
@@ -419,7 +419,7 @@ public:
             for (const auto &availableResources: allAvailableResourcesCombinations) {
                 auto selectedJob = schedulingPolicy.callScheduler(rq, availableResources, newState.getTimeStamp());
                 if (selectedJob != std::nullopt) {
-                    nextDispatchedJobs.insert(selectedJob.value());
+                    nextDispatchedJobs.emplace(selectedJob.value());
                 }
             }
         }
