@@ -96,6 +96,13 @@ int main(int argc, char **argv) {
 
     verbose = options.get("verbose");
     log_impl::GLOBAL_LEVEL = verbose;
+	// this option is only available when the code is compiled with the DEBUG flag
+#ifndef DEBUG
+	if (verbose > 0) {
+		std::cerr << "Verbose option is only available when the code is compiled with the DEBUG flag" << std::endl;
+		exit(1);
+	}
+#endif
 
     wantNaive = options.get("naive");
 

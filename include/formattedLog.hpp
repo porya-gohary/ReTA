@@ -2,7 +2,9 @@
 #define FORMATTEDLOG_HPP
 
 #include <sstream>
+#ifdef DEBUG
 #include <boost/format.hpp>
+#endif
 #include <iostream>
 #include <iomanip>
 #include <mutex>
@@ -22,6 +24,7 @@ namespace log_impl {
     int GLOBAL_LEVEL = 2;
     std::mutex mutex;
 
+#ifdef DEBUG
     class formattedLog {
     public:
         formattedLog(log_level_t level, const std::string msg) : fmt(msg), level(level) { }
@@ -43,6 +46,18 @@ namespace log_impl {
         boost::format fmt;
 
     };
+#else
+	class formattedLog {
+	public:
+		formattedLog(log_level_t level, const std::string msg) { }
+
+		template<typename T>
+		formattedLog &operator%(T value) {
+			return *this;
+		}
+
+	};
+#endif
 }//namespace log_impl
 // Helper function. Class formatted_log_t will not be used directly.
 
