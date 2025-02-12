@@ -8,6 +8,7 @@
 #include <fstream>
 #include <algorithm>
 #include <unordered_map>
+#include <cassert>
 
 struct node {
 
@@ -110,25 +111,21 @@ public:
         leaves.erase(std::remove(leaves.begin(), leaves.end(), source), leaves.end());
     }
 
-	void freeMemory() {
-		// remove the edges that are not connected to the leaves
-		edges.erase(std::remove_if(edges.begin(), edges.end(), [&](std::shared_ptr<edge> const &tempEdge) {
-			return std::find(leaves.begin(), leaves.end(), tempEdge->fromID) == leaves.end();
-		}), edges.end());
+void freeMemory() {
+    // Remove the edges that are not connected to the leaves
+    edges.erase(std::remove_if(edges.begin(), edges.end(), [&](const std::shared_ptr<edge> &tempEdge) {
+        return !leaves.empty() && std::find(leaves.begin(), leaves.end(), tempEdge->fromID) == leaves.end();
+    }), edges.end());
 
-		// if we don't need all the nodes, remove the none-leaf nodes from the node vector
-		std::vector<unsigned long> nonLeafNodes;
-		for (const auto &n: nodes) {
-			if (std::find(leaves.begin(), leaves.end(), n.first) == leaves.end()) {
-				nonLeafNodes.push_back(n.first);
-			}
-		}
-		for(auto n: nonLeafNodes) {
-			nodes.erase(n);
-		}
-
-	}
-
+    // Remove the non-leaf nodes from the nodes map
+    for (auto it = nodes.begin(); it != nodes.end();) {
+        if (std::find(leaves.begin(), leaves.end(), it->first) == leaves.end()) {
+            it = nodes.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
     void updateNodeLabel(unsigned long id, std::string label) {
 		auto x = nodes.find(id);
         if (x != nodes.end()) {

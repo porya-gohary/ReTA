@@ -492,6 +492,11 @@ std::vector<stateID> findExplorableStates(std::vector<stateID> &stateIDs) {
         readyQueue certainReleasedJobs;
         readyQueue allReadyJobs;
 
+        allReadyJobs.reserve(jobs.size());
+        certainReadyJobs.reserve(jobs.size());
+        certainReleasedJobs.reserve(jobs.size());
+        possibleReadyJobs.reserve(jobs.size());
+
         for (auto &seg: jobsByEarliestArrival) {
             // check if the job is already dispatched
             log<LOG_DEBUG>("Checking job %1%") % seg.getID();
@@ -504,32 +509,32 @@ std::vector<stateID> findExplorableStates(std::vector<stateID> &stateIDs) {
             if (s.getTimeStamp() >= seg.getArrival().from()) {
                 // check if the processor is available
                 if (s.getProcessorAvailability(seg.getAssignedProcessorSet(), 1).min() <= s.getTimeStamp()) {
-                    allReadyJobs.push_back(seg.getID());
+                    allReadyJobs.emplace_back(seg.getID());
                 } else {
                     log<LOG_DEBUG>(" -> Job %1%'s resource is not available") % seg.getID();
                 }
             } else {
                 log<LOG_DEBUG>(" -> Job %1% is not released") % seg.getID();
-				log<LOG_DEBUG>(" -> No need to check further");
-				break;
+                log<LOG_DEBUG>(" -> No need to check further");
+                break;
             }
 
             // make queue of certain ready jobs
             if (s.getTimeStamp() >= seg.getArrival().until()) {
                 // check if the processor is available
                 if (s.getProcessorAvailability(seg.getAssignedProcessorSet(), 1).max() <= s.getTimeStamp()) {
-                    certainReadyJobs.push_back(seg.getID());
+                    certainReadyJobs.emplace_back(seg.getID());
                 } else if (s.getProcessorAvailability(seg.getAssignedProcessorSet(), 1).min() <= s.getTimeStamp()) {
                     // jobs that certainly released but their resource is not certainly available
-                    certainReleasedJobs.push_back(seg.getID());
+                    certainReleasedJobs.emplace_back(seg.getID());
                 }
             }
-
         }
 
         // make queue of possible ready jobs
         // possible ready jobs are jobs that are not in certainly ready jobs
         readyQueue tempQueue;
+        tempQueue.reserve(allReadyJobs.size());
         std::set_difference(allReadyJobs.begin(), allReadyJobs.end(), certainReadyJobs.begin(),
                             certainReadyJobs.end(), std::back_inserter(tempQueue));
 
@@ -538,48 +543,41 @@ std::vector<stateID> findExplorableStates(std::vector<stateID> &stateIDs) {
 
         // make ready queues (union of possible ready jobs and certainly ready jobs)
         for (auto q: makePowerset(possibleReadyJobs)) {
-            std::string tempString;
-            tempString.append("Possibly ready jobs combination: {");
-            for (auto &seg: q) {
-                tempString.append(seg.string());
-                tempString.append(", ");
-            }
-            log<LOG_INFO>("%1%}") % tempString;
-
             readyQueue temp;
+            temp.reserve(certainReadyJobs.size() + q.size());
             temp.insert(temp.end(), certainReadyJobs.begin(), certainReadyJobs.end());
             temp.insert(temp.end(), q.begin(), q.end());
-            queues.push_back(temp);
+            queues.emplace_back(temp);
         }
 
-        //add certainly released jobs to the queues
+        // add certainly released jobs to the queues
         readyQueues tempQueues;
+        tempQueues.reserve(queues.size());
         for (auto &q: queues) {
             readyQueue temp;
+            temp.reserve(q.size() + certainReleasedJobs.size());
             temp.insert(temp.end(), q.begin(), q.end());
             temp.insert(temp.end(), certainReleasedJobs.begin(), certainReleasedJobs.end());
-            tempQueues.push_back(temp);
+            tempQueues.emplace_back(temp);
         }
-//        queues.insert(queues.end(), tempQueues.begin(), tempQueues.end());
+
         std::copy_if(tempQueues.begin(),
                      tempQueues.end(),
                      std::back_inserter(queues),
                      [&](auto q) { return q.size() != 0 && !std::count(queues.begin(), queues.end(), q); });
 
-
+#ifdef DEBUG
         // print all possible ready queues
         log<LOG_INFO>("%1% Possible ready queues:") % queues.size();
         for (auto &q: queues) {
-            std::string temp = "";
-
-            temp.append("queue: {");
+            std::string temp = "queue: {";
             for (auto &seg: q) {
                 temp.append(seg.string());
                 temp.append(", ");
             }
             log<LOG_INFO>("%1%}") % temp;
         }
-
+#endif
         return queues;
     }
 
