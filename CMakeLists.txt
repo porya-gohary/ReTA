@@ -17,6 +17,11 @@ else ()
     set(CMAKE_BUILD_TYPE Release)
 endif ()
 
+if (COLLECT_TLTS_GRAPH)
+    message(NOTICE "Collecting time-labeled transition systems is enabled")
+    add_compile_definitions(COLLECT_TLTS_GRAPH)
+endif ()
+
 if (RESOURCE_ACCESS)
     message(NOTICE "Resource access is enabled")
     add_compile_definitions(RESOURCE_ACCESS)
