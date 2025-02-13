@@ -40,19 +40,6 @@ public:
         assert(processorAvailability.size() > 0);
     }
 
-//    // dispatch transition: new state by scheduling a job in an existing state in a specific processor
-//    state(const state &from, unsigned long id, const job<Time> &s, std::size_t processor, Interval<Time> finishTime)
-//            : timeStamp(from.timeStamp), dispatched(from.dispatched), jobsFinishTimes(from.jobsFinishTimes),
-//              processorAvailability(from.processorAvailability), eventSet(from.eventSet) {
-//        stateID = id;
-//        dispatched.push_back(s);
-//        jobsFinishTimes.emplace(s.getID(), finishTime);
-//        processorAvailability[processor] = finishTime;
-//        addEvent(finishTime.min());
-//        addEvent(finishTime.max());
-//        lookupKey = from.getLookupKey() ^ makeKey(s, from.timeStamp);
-//    }
-
     // dispatch transition: new state by scheduling a job in an existing state globally
     state(const state &from, unsigned long id, const job<Time> &s, std::size_t processor, Interval<Time> finishTime)
             : timeStamp(from.timeStamp), dispatched(from.dispatched), jobsFinishTimes(from.jobsFinishTimes),
@@ -66,7 +53,7 @@ public:
             addEvent(finishTime.max());
         }
 
-        lookupKey = from.getLookupKey() ^ makeKey(s, from.timeStamp);
+        lookupKey = from.getLookupKey() ^ s.getHash();
 
         // update processor availability
         std::vector<Time> ca, pa;
@@ -97,7 +84,7 @@ public:
     state(const state &from, unsigned long id, Time time)
             : timeStamp(time), dispatched(from.dispatched), jobsFinishTimes(from.jobsFinishTimes),
               processorAvailability(from.processorAvailability), eventSet(from.eventSet),
-              completionEvents(from.completionEvents) {
+              completionEvents(from.completionEvents), lookupKey(from.getLookupKey()) {
         stateID = id;
 
         // new time stamp after a time transition should be greater than the previous one
@@ -107,7 +94,6 @@ public:
         eventSet.erase(std::remove_if(eventSet.begin(), eventSet.end(), [time](Time e) { return e <= time; }),
                        eventSet.end());
 
-        lookupKey = from.getLookupKey() ^ makeKey(time);
     }
 
     void addEvent(Time time) {
@@ -123,29 +109,6 @@ public:
 
     unsigned long getNumberOfDispatchedJobs() const {
         return dispatched.size();
-    }
-
-    // make hash key for dispatch transition
-    std::size_t makeKey(const job<Time> &s, Time time) const {
-        auto h = std::hash<Time>{};
-        std::size_t key = h(s.getID().task);
-        key = (key << 4) ^ h(s.getID().job);
-        key = (key << 4) ^ h(s.getArrival().until());
-        key = (key << 4) ^ h(s.getCost().until());
-        key = (key << 4) ^ h(s.getDeadline());
-//        key = (key << 4) ^ h(time);
-
-        return key;
-
-    }
-
-    // make hash key for time transition
-    std::size_t makeKey(Time time) const {
-        auto h = std::hash<Time>{};
-        std::size_t key = h(time);
-
-        return key;
-
     }
 
     // get processor availability
@@ -193,9 +156,9 @@ public:
     bool canMergeWith(const state &other) const {
         assert(processorAvailability.size() == other.processorAvailability.size());
 
-//        if (this->getLookupKey() != other.getLookupKey()) {
-//            return false;
-//        }
+        if (this->getLookupKey() != other.getLookupKey()) {
+            return false;
+        }
 
         if (!sameTimeStamp(other)) {
             return false;
@@ -208,12 +171,12 @@ public:
         return true;
     }
 
-    bool tryToMerge(const state &other) {
-        if (!canMergeWith(other)) {
-            return false;
-        }
-        // vector to collect joint certain jobs
-        std::unordered_map<jobID, Interval<Time>> jointJobs;
+	bool tryToMerge(const state &other) {
+		if (!canMergeWith(other)) {
+			return false;
+		}
+		// vector to collect joint certain jobs
+		std::unordered_map<jobID, Interval<Time>> jointJobs;
 
         auto it1 = jobsFinishTimes.begin();
 
@@ -222,27 +185,25 @@ public:
             it1++;
         }
 
-        // replace the old intervals with the new ones
-        jobsFinishTimes = jointJobs;
+		// replace the old intervals with the new ones
+		jobsFinishTimes = std::move(jointJobs);
 
-        // merge availability intervals
-        for (std::size_t i = 0; i < processorAvailability.size(); i++) {
-            for (std::size_t j = 0; j < processorAvailability[i].size(); j++) {
-                processorAvailability[i][j] |= other.processorAvailability[i][j];
-            }
-        }
+		// merge availability intervals
+		for (std::size_t i = 0; i < processorAvailability.size(); i++) {
+			for (std::size_t j = 0; j < processorAvailability[i].size(); j++) {
+				processorAvailability[i][j] |= other.processorAvailability[i][j];
+			}
+		}
 
-        // merge event set (union of two sets)
-        for (auto e: other.eventSet) {
-            auto it = std::find(eventSet.begin(), eventSet.end(), e);
-            if (it == eventSet.end()) {
-                addEvent(e);
-            }
-        }
+		// merge event set (union of two sets)
+		for (const auto &e: other.eventSet) {
+			if (std::find(eventSet.begin(), eventSet.end(), e) == eventSet.end()) {
+				addEvent(e);
+			}
+		}
 
-
-        return true;
-    }
+		return true;
+	}
 
     // get the state's time stamp
     Time getTimeStamp() const {
@@ -264,7 +225,6 @@ public:
 		eventSet.erase(std::remove_if(eventSet.begin(), eventSet.end(), [newTime](Time e) { return e <= newTime; }),
 					   eventSet.end());
 
-		lookupKey = getLookupKey() ^ makeKey(newTime);
 	}
 
     // get the state's dispatched jobs
