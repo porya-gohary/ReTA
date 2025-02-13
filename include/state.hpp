@@ -6,6 +6,7 @@
 #include <algorithm>
 #include "job.hpp"
 #include "formattedLog.hpp"
+#include "indexSet.hpp"
 
 template<class Time>
 class state {
@@ -14,7 +15,9 @@ private:
     // state's time stamp
     Time timeStamp;
     // set of dispatched jobs
-    std::vector<job<Time>> dispatched;
+    indexSet dispatched;
+	// set of dispatched jobs with pointers (only for debugging and visualization)
+	std::vector<const job<Time> *> dispatchedPointer;
     // set of finish times for dispatched jobs
     std::unordered_map<jobID, Interval<Time>> jobsFinishTimes;
     // system availability intervals
@@ -41,12 +44,14 @@ public:
     }
 
     // dispatch transition: new state by scheduling a job in an existing state globally
-    state(const state &from, unsigned long id, const job<Time> &s, std::size_t processor, Interval<Time> finishTime)
-            : timeStamp(from.timeStamp), dispatched(from.dispatched), jobsFinishTimes(from.jobsFinishTimes),
+    state(const state &from, unsigned long id, const job<Time> &s, const std::size_t &jobIndex, std::size_t processor, Interval<Time> finishTime)
+            : timeStamp(from.timeStamp), dispatched{from.dispatched, jobIndex}, dispatchedPointer(from.dispatchedPointer), jobsFinishTimes(from.jobsFinishTimes),
               eventSet(from.eventSet), completionEvents(from.completionEvents),
               processorAvailability(from.processorAvailability) {
         stateID = id;
-        dispatched.push_back(s);
+#ifdef COLLECT_TLTS_GRAPH
+        dispatchedPointer.push_back(&s);
+#endif
         jobsFinishTimes.emplace(s.getID(), finishTime);
         if (completionEvents) {
             addEvent(finishTime.min());
@@ -124,12 +129,8 @@ public:
         return stateID;
     }
 
-    bool isDispatched(const job<Time> s) const {
-        if (std::find(dispatched.begin(), dispatched.end(), s) != dispatched.end()) {
-            return true;
-        } else {
-            return false;
-        }
+    bool isDispatched(const std::size_t &jobIndex) const {
+		return dispatched.contains(jobIndex);
     }
 
     bool operator==(const state &other) const {
@@ -137,16 +138,7 @@ public:
     }
 
     bool sameJobDispatched(const state &other) const {
-        if (this->dispatched.size() != other.dispatched.size()) {
-            return false;
-        }
-
-        for (auto s: dispatched) {
-            if (!other.isDispatched(s)) {
-                return false;
-            }
-        }
-        return true;
+		return this->dispatched == other.dispatched;
     }
 
     bool sameTimeStamp(const state &other) const {
@@ -246,7 +238,7 @@ public:
         os << "State " << s.stateID << ": {";
         os << "TS: " << s.timeStamp << ", ";
         os << "S^D: [";
-        for (auto &seg: s.dispatched) {
+        for (auto &seg: s.dispatchedPointer) {
             os << seg << ", ";
         }
         os << "], ";
@@ -277,8 +269,8 @@ public:
         os << "State " << stateID << ": \\n";
         os << "TS: " << timeStamp << ", \\n";
         os << "S^D: [";
-        for (auto &seg: dispatched) {
-            os << seg.getID().string() << ", ";
+        for (auto &seg: dispatchedPointer) {
+            os << seg->getID().string() << ", ";
         }
         os << "], \\n";
         os << "A: [";

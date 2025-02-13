@@ -34,6 +34,8 @@ template<class Time>
 class transitionSystem {
     typedef unsigned long stateID;
     typedef std::vector<job<Time>> jobSet;
+	typedef const job<Time> *jobRef;
+    typedef std::unordered_map<jobID, jobRef> jobRefMapByID;
     typedef std::unordered_map<jobID, job<Time>> jobMapByID;
     typedef std::vector<jobID> readyQueue;
     typedef std::vector<readyQueue> readyQueues;
@@ -42,6 +44,7 @@ class transitionSystem {
 private:
     std::unordered_map<stateID, state<Time>> statesByID;
     jobMapByID jobsByID;
+	jobRefMapByID jobRefsByID;
 	Jobs_lut _jobsByWin;
 
 	const Jobs_lut &jobsByWin;
@@ -50,7 +53,6 @@ private:
     bool beNaive = false;
     cpuTime timer;
     const jobSet jobs;
-	jobSet jobsByEarliestArrival;
     const double timeout;
     const events<Time> systemEvents;
     const std::vector<unsigned int> resourceSet;
@@ -70,10 +72,10 @@ private:
 public:
     // Interface for constructing the transition system naively
     static transitionSystem
-    constructNaively(std::string segFile, jobSet jobs, events<Time> systemEvents,
+    constructNaively(std::string segFile, jobSet &workload, events<Time> systemEvents,
                      std::vector<processor> &processors, double timeout) {
         std::vector<unsigned int> resourceSet = tools::generateResourceSet(processors);
-        auto ts = transitionSystem(jobs, systemEvents, processors, resourceSet, timeout);
+        auto ts = transitionSystem(workload, systemEvents, processors, resourceSet, timeout);
         log<LOG_DEBUG>("Constructing transition system naively");
         ts.jobFile = segFile;
         ts.beNaive = true;
@@ -97,20 +99,17 @@ public:
         return ts;
     }
 
-    transitionSystem(const jobSet &jobs, events<Time> systemEvents, std::vector<processor> &processors,
+    transitionSystem(const jobSet &workload, events<Time> systemEvents, std::vector<processor> &processors,
                      std::vector<unsigned int> &resourceSet, double timeout)
-            : jobs(jobs), numStates(0), timeout(timeout), systemEvents(systemEvents), processors(processors),
+            : jobs(workload), numStates(0), timeout(timeout), systemEvents(systemEvents), processors(processors),
               resourceSet(resourceSet),
-              numDispatchedJob(jobs.size()), _jobsByWin(Interval<Time>{0, maxDeadline(jobs)}, maxDeadline(jobs) / jobs.size()),
+              numDispatchedJob(workload.size()), _jobsByWin(Interval<Time>{0, maxDeadline(workload)}, maxDeadline(workload) / workload.size()),
 			  jobsByWin(_jobsByWin) {
         for (const job<Time> &s: jobs) {
             jobsByID.emplace(s.getID(), s);
+			jobRefsByID.emplace(s.getID(), &s);
 			_jobsByWin.insert(s);
         }
-		jobsByEarliestArrival = jobs;
-		std::sort(jobsByEarliestArrival.begin(), jobsByEarliestArrival.end(), [](job<Time> a, job<Time> b) {
-			return a.getEarliestArrival() < b.getEarliestArrival();
-		});
         schedulingPolicy = scheduler<Time>(jobsByID);
 
     }
@@ -326,10 +325,13 @@ public:
 
     void dispatchJob(const state<Time> &s, jobID sid) {
         log<LOG_INFO>("Dispatching job %1%") % sid;
-        //calculate the earliest and latest finish time of the job
-        Interval<Time> ftimes = jobsByID.find(sid)->second.getCost() + s.getTimeStamp();
-        state<Time> newState(s, numStates, jobsByID.find(sid)->second,
-                             jobsByID.find(sid)->second.getAssignedProcessorSet(), ftimes);
+		// get the job from the job ID
+		const job<Time> &job = *(jobRefsByID.find(sid)->second);
+		//calculate the earliest and latest finish time of the job
+		Interval<Time> ftimes = job.getCost() + s.getTimeStamp();
+
+        state<Time> newState(s, numStates, job, indexOf(job),
+							 job.getAssignedProcessorSet(), ftimes);
         if (!beNaive) {
             if (tryToMergeStates(newState, s.getStateID(), sid.string())) {
                 updateResponseTime(sid, ftimes);
@@ -512,7 +514,7 @@ std::vector<stateID> findExplorableStates(std::vector<stateID> &stateIDs) {
         for (const job<Time> &seg: jobsByWin.lookup(s.getTimeStamp())) {
             // check if the job is already dispatched
             log<LOG_DEBUG>("Checking job %1%") % seg.getID();
-            if (s.isDispatched(seg)) {
+            if (s.isDispatched(indexOf(seg))) {
                 log<LOG_DEBUG>(" -> Job %1% is already dispatched") % seg.getID();
                 continue;
             } else if (seg.exceedsDeadline(s.getTimeStamp() + seg.getCost().max())) {
@@ -834,6 +836,20 @@ readyQueues makePowerset(readyQueue &queue) {
 			dl = std::max(dl, j.getDeadline());
 		}
 		return dl;
+	}
+
+	std::size_t indexOf(const job<Time> &j) const {
+		// make sure that the job is part of the workload
+		// and catch the case where the job is not part of the workload,
+		// but the user tries to access it anyway
+		auto index = (std::size_t) (&j - &(jobs[0]));
+		try {
+			jobs.at(index);
+		} catch (std::out_of_range &e) {
+			std::cerr << "Job " << j << " not found in workload." << std::endl;
+			std::abort();
+		}
+		return index;
 	}
 
 
