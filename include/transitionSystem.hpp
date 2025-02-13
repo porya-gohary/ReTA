@@ -37,10 +37,15 @@ class transitionSystem {
     typedef std::unordered_map<jobID, job<Time>> jobMapByID;
     typedef std::vector<jobID> readyQueue;
     typedef std::vector<readyQueue> readyQueues;
+	typedef IntervalLookupTable<Time, job<Time>, job<Time>::schedulingWindow> Jobs_lut;
 
 private:
     std::unordered_map<stateID, state<Time>> statesByID;
     jobMapByID jobsByID;
+	Jobs_lut _jobsByWin;
+
+	const Jobs_lut &jobsByWin;
+
 
     bool beNaive = false;
     cpuTime timer;
@@ -96,9 +101,11 @@ public:
                      std::vector<unsigned int> &resourceSet, double timeout)
             : jobs(jobs), numStates(0), timeout(timeout), systemEvents(systemEvents), processors(processors),
               resourceSet(resourceSet),
-              numDispatchedJob(jobs.size()) {
-        for (auto &s: jobs) {
+              numDispatchedJob(jobs.size()), _jobsByWin(Interval<Time>{0, maxDeadline(jobs)}, maxDeadline(jobs) / jobs.size()),
+			  jobsByWin(_jobsByWin) {
+        for (const job<Time> &s: jobs) {
             jobsByID.emplace(s.getID(), s);
+			_jobsByWin.insert(s);
         }
 		jobsByEarliestArrival = jobs;
 		std::sort(jobsByEarliestArrival.begin(), jobsByEarliestArrival.end(), [](job<Time> a, job<Time> b) {
@@ -256,7 +263,9 @@ public:
                         if (!beNaive) {
                             // if we are not in naive mode,
                             // we apply the peeking strategy to implement scheduling event abstraction
-                            nextEventTime = peekState(queues, s);
+							// create a temp copy of the state to avoid modifying the original state
+							state<Time> tempState(s);
+                            nextEventTime = peekState(queues, tempState);
                         }
                         timeTransition(s, nextEventTime);
                     }
@@ -291,7 +300,8 @@ public:
 					if (!beNaive) {
 						// if we are not in naive mode,
 						// we apply the peeking strategy to implement scheduling event abstraction
-						nextEventTime = peekState(queues, s);
+						state<Time> tempState(s);
+						nextEventTime = peekState(queues, tempState);
 					}
 					timeTransition(s, nextEventTime);
 				}
@@ -361,28 +371,27 @@ public:
 
     }
 
-    bool tryToMergeStates(const state<Time> &s, stateID parentID, std::string transitionLabel) {
-        // get all leaf states
-        auto leaves = transitionStructure.getLeaves();
+	bool tryToMergeStates(const state<Time> &s, stateID parentID, std::string transitionLabel) {
+		// get all leaf states
+		auto leaves = transitionStructure.getLeaves();
 
+		for (const auto &id: leaves) {
+			// check if the state can be merged with any of the leaf states
+			auto it = statesByID.find(id);
+			if (it != statesByID.end() && it->second.tryToMerge(s)) {
+				// we have merged the states
+				// we need to update the transition structure
+				transitionStructure.updateNodeLabel(it->second.getStateID(), it->second.getStateLabel());
+				// make a new edge from the parent of s to the existing state
+				transitionStructure.addEdge(parentID, it->second.getStateID(), transitionLabel);
+				log<LOG_INFO>("Merged with an existing state: %1%") % it->second.getStateLabel();
+				return true;
+			}
+		}
+		return false;
+	}
 
-        for (auto id: leaves) {
-            // check if the state can be merged with any of the leaf states
-            auto &existingState = statesByID.find(id)->second;
-            if (existingState.tryToMerge(s)) {
-                // we have merged the states
-                // we need to update the transition structure
-                transitionStructure.updateNodeLabel(existingState.getStateID(), existingState.getStateLabel());
-                // make a new edge from the parent of s to the existing state
-                transitionStructure.addEdge(parentID, existingState.getStateID(), transitionLabel);
-                log<LOG_INFO>("Merged with an existing state: %1%") % existingState.getStateLabel();
-                return true;
-            }
-        }
-        return false;
-    }
-
-    Time peekState(const readyQueues &queues, const state<Time> &fromState) {
+    Time peekState(const readyQueues &queues, state<Time> &fromState) {
         // take a quick look at the next state to see if it makes different ready queues or dispatches a different job
         // if it does, we need to create a new state
         // otherwise, we can ignore it
@@ -398,15 +407,18 @@ public:
             for (const auto &availableResources: allAvailableResourcesCombinations) {
                 auto selectedJob = schedulingPolicy.callScheduler(rq, availableResources, fromState.getTimeStamp());
                 if (selectedJob != std::nullopt) {
-                    dispatchedJobs.insert(selectedJob.value());
+                    dispatchedJobs.emplace(selectedJob.value());
                 }
             }
         }
 
         log<LOG_INFO>(">> Peeking the next state in time %1%") % (fromState.getNextEventTime());
         log<LOG_INFO>("-------------------------");
-        state<Time> newState(fromState, numStates, fromState.getNextEventTime());
-        readyQueues nextStateQueues = makeReadyQueues(newState);
+//        state<Time> newState(fromState, numStates, fromState.getNextEventTime());
+		// update the time stamp of the current state
+		auto nextEventTime = fromState.getNextEventTime();
+		fromState.updateEventSet(nextEventTime);
+        readyQueues nextStateQueues = makeReadyQueues(fromState);
 
         // 2. found all the jobs that will be dispatched by the next ready queues
         std::unordered_set<jobID> nextDispatchedJobs;
@@ -414,10 +426,10 @@ public:
 		nextDispatchedJobs.reserve(jobs.size());
         for (const auto &q: nextStateQueues) {
             auto rq = queue<Time>(jobsByID, q);
-            auto rangeOfAvailableResources = makeAvailableResourcesMap(rq, newState);
+            auto rangeOfAvailableResources = makeAvailableResourcesMap(rq, fromState);
             auto allAvailableResourcesCombinations = makeAllCombinationsOfAvailableResources(rangeOfAvailableResources);
             for (const auto &availableResources: allAvailableResourcesCombinations) {
-                auto selectedJob = schedulingPolicy.callScheduler(rq, availableResources, newState.getTimeStamp());
+                auto selectedJob = schedulingPolicy.callScheduler(rq, availableResources, fromState.getTimeStamp());
                 if (selectedJob != std::nullopt) {
                     nextDispatchedJobs.emplace(selectedJob.value());
                 }
@@ -427,9 +439,9 @@ public:
         // 3. compare the two sets of dispatched jobs
         if (nextDispatchedJobs != dispatchedJobs || nextStateQueues != queues) {
             log<LOG_INFO>("-------------------------");
-            return newState.getTimeStamp();
+            return fromState.getTimeStamp();
         } else {
-            return peekState(queues, newState);
+            return peekState(queues, fromState);
         }
     }
 
@@ -497,13 +509,16 @@ std::vector<stateID> findExplorableStates(std::vector<stateID> &stateIDs) {
         certainReleasedJobs.reserve(jobs.size());
         possibleReadyJobs.reserve(jobs.size());
 
-        for (auto &seg: jobsByEarliestArrival) {
+        for (const job<Time> &seg: jobsByWin.lookup(s.getTimeStamp())) {
             // check if the job is already dispatched
             log<LOG_DEBUG>("Checking job %1%") % seg.getID();
             if (s.isDispatched(seg)) {
                 log<LOG_DEBUG>(" -> Job %1% is already dispatched") % seg.getID();
                 continue;
-            }
+            } else if (seg.exceedsDeadline(s.getTimeStamp() + seg.getCost().max())) {
+				log<LOG_DEBUG>(" -> Job %1% missed its deadline") % seg.getID();
+				aborted = true;
+			}
 
             // check if job is possibly released
             if (s.getTimeStamp() >= seg.getArrival().from()) {
@@ -516,7 +531,7 @@ std::vector<stateID> findExplorableStates(std::vector<stateID> &stateIDs) {
             } else {
                 log<LOG_DEBUG>(" -> Job %1% is not released") % seg.getID();
                 log<LOG_DEBUG>(" -> No need to check further");
-                break;
+                continue;
             }
 
             // make queue of certain ready jobs
@@ -812,6 +827,14 @@ readyQueues makePowerset(readyQueue &queue) {
         std::string fileName = jobFile.substr(0, jobFile.find_last_of("."));
         transitionStructure.generateDotFile(fileName.append(".dot"));
     }
+
+	Time maxDeadline(const jobSet &jobs) {
+		Time dl = 0;
+		for (auto &j: jobs) {
+			dl = std::max(dl, j.getDeadline());
+		}
+		return dl;
+	}
 
 
 };

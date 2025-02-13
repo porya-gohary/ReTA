@@ -182,6 +182,17 @@ public:
         return t > deadline && (t - deadline) > timeModel::constants<Time>::deadlineMissTolerance();
     }
 
+	Interval<Time> schedulingWindow() const {
+		// inclusive interval, so take off one epsilon
+		return Interval<Time>{
+				getEarliestArrival(),
+				deadline - timeModel::constants<Time>::epsilon()};
+	}
+
+	static Interval<Time> schedulingWindow(const job &j) {
+		return j.schedulingWindow();
+	}
+
     bool operator==(const job<Time> &other) const {
         return this->id == other.id;
     }

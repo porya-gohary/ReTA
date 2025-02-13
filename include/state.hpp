@@ -254,6 +254,19 @@ public:
         return eventSet;
     }
 
+	// A function to update event set of the current state
+	void updateEventSet(Time newTime) {
+		// new time stamp after a time transition should be greater than the previous one
+		assert(newTime > timeStamp);
+		timeStamp = newTime;
+
+		// remove events that are no longer valid
+		eventSet.erase(std::remove_if(eventSet.begin(), eventSet.end(), [newTime](Time e) { return e <= newTime; }),
+					   eventSet.end());
+
+		lookupKey = getLookupKey() ^ makeKey(newTime);
+	}
+
     // get the state's dispatched jobs
     std::vector<job<Time>> getDispatched() const {
         return dispatched;
