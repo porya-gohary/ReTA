@@ -224,11 +224,8 @@ public:
 			}
 
 		}
-		std::vector<Time> eventSet(eventTimes.begin(), eventTimes.end());
 
-		std::sort(eventSet.begin(), eventSet.end());
-
-		state<Time> s(resourceSet, eventSet, systemEvents.isCompletionEvent());
+		state<Time> s(resourceSet, eventTimes, systemEvents.isCompletionEvent());
 		statesByID.emplace(numStates, s);
 //        statesByKey.emplace(s.getKey(), s);
 		transitionStructure.addNode(-1, s.getTimeStamp(), s.getStateLabel(), "");

@@ -23,7 +23,7 @@ private:
 	// system availability intervals
 	std::vector<std::vector<Interval<Time>>> processorAvailability;
 	// state's event set
-	std::vector<Time> eventSet;
+	std::set<Time> eventSet;
 	// state hash
 	std::size_t lookupKey;
 	// Considering completion events
@@ -31,7 +31,7 @@ private:
 
 public:
 	// initial state -- nothing yet has dispatched, processors are all available
-	state(const std::vector<unsigned int> &resourceSet, std::vector<Time> eventSet, bool completionEvents)
+	state(const std::vector<unsigned int> &resourceSet, std::set<Time> eventSet, bool completionEvents)
 			: timeStamp(0), stateID(0), dispatched(),
 			  eventSet(eventSet), completionEvents(completionEvents), lookupKey(0x9a9a9a9a9a9a9a9aUL) {
 		for (auto &resource: resourceSet) {
@@ -98,20 +98,21 @@ public:
 		assert(timeStamp > from.timeStamp);
 
 		// remove events that are no longer valid
-		eventSet.erase(std::remove_if(eventSet.begin(), eventSet.end(), [time](Time e) { return e <= time; }),
-					   eventSet.end());
+		eventSet.erase(eventSet.begin(), eventSet.upper_bound(time));
 
 	}
 
 	void addEvent(Time time) {
-		if (std::find(eventSet.begin(), eventSet.end(), time) == eventSet.end()) {
-			eventSet.push_back(time);
-		}
-		std::sort(eventSet.begin(), eventSet.end());
+//		if (std::find(eventSet.begin(), eventSet.end(), time) == eventSet.end()) {
+//			eventSet.push_back(time);
+//		}
+//		std::sort(eventSet.begin(), eventSet.end());
+		eventSet.insert(time);
 	}
 
 	Time getNextEventTime() const {
-		return eventSet[0];
+//		return eventSet[0];
+		return *eventSet.begin();
 	}
 
 	unsigned long getNumberOfDispatchedJobs() const {
@@ -190,10 +191,13 @@ public:
 		}
 
 		// merge event set (union of two sets)
+//		for (const auto &e: other.eventSet) {
+//			if (std::find(eventSet.begin(), eventSet.end(), e) == eventSet.end()) {
+//				addEvent(e);
+//			}
+//		}
 		for (const auto &e: other.eventSet) {
-			if (std::find(eventSet.begin(), eventSet.end(), e) == eventSet.end()) {
-				addEvent(e);
-			}
+			addEvent(e);
 		}
 
 		return true;
@@ -205,7 +209,7 @@ public:
 	}
 
 	// get the state's event set
-	std::vector<Time> getEventSet() const {
+	std::set<Time> getEventSet() const {
 		return eventSet;
 	}
 
@@ -216,8 +220,7 @@ public:
 		timeStamp = newTime;
 
 		// remove events that are no longer valid
-		eventSet.erase(std::remove_if(eventSet.begin(), eventSet.end(), [newTime](Time e) { return e <= newTime; }),
-					   eventSet.end());
+		eventSet.erase(eventSet.begin(), eventSet.upper_bound(newTime));
 
 	}
 
