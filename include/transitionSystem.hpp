@@ -412,36 +412,38 @@ public:
 			}
 		}
 
-		log<LOG_INFO>(">> Peeking the next state in time %1%") % (fromState.getNextEventTime());
-		log<LOG_INFO>("-------------------------");
-//        state<Time> newState(fromState, numStates, fromState.getNextEventTime());
-		// update the time stamp of the current state
-		auto nextEventTime = fromState.getNextEventTime();
-		fromState.updateEventSet(nextEventTime);
-		readyQueues nextStateQueues = makeReadyQueues(fromState);
+		while (true) {
 
-		// 2. found all the jobs that will be dispatched by the next ready queues
-		std::unordered_set<jobID> nextDispatchedJobs;
-		// reserve memory for the dispatched jobs
-		nextDispatchedJobs.reserve(jobs.size());
-		for (const auto &q: nextStateQueues) {
-			auto rq = queue<Time>(jobsByID, q);
-			auto rangeOfAvailableResources = makeAvailableResourcesMap(rq, fromState);
-			auto allAvailableResourcesCombinations = makeAllCombinationsOfAvailableResources(rangeOfAvailableResources);
-			for (const auto &availableResources: allAvailableResourcesCombinations) {
-				auto selectedJob = schedulingPolicy.callScheduler(rq, availableResources, fromState.getTimeStamp());
-				if (selectedJob != std::nullopt) {
-					nextDispatchedJobs.emplace(selectedJob.value());
+			log<LOG_INFO>(">> Peeking the next state in time %1%") % (fromState.getNextEventTime());
+			log<LOG_INFO>("-------------------------");
+
+			// update the time stamp of the current state
+			auto nextEventTime = fromState.getNextEventTime();
+			fromState.updateEventSet(nextEventTime);
+			readyQueues nextStateQueues = makeReadyQueues(fromState);
+
+			// 2. found all the jobs that will be dispatched by the next ready queues
+			std::unordered_set<jobID> nextDispatchedJobs;
+			// reserve memory for the dispatched jobs
+			nextDispatchedJobs.reserve(jobs.size());
+			for (const auto &q: nextStateQueues) {
+				auto rq = queue<Time>(jobsByID, q);
+				auto rangeOfAvailableResources = makeAvailableResourcesMap(rq, fromState);
+				auto allAvailableResourcesCombinations = makeAllCombinationsOfAvailableResources(
+						rangeOfAvailableResources);
+				for (const auto &availableResources: allAvailableResourcesCombinations) {
+					auto selectedJob = schedulingPolicy.callScheduler(rq, availableResources, fromState.getTimeStamp());
+					if (selectedJob != std::nullopt) {
+						nextDispatchedJobs.emplace(selectedJob.value());
+					}
 				}
 			}
-		}
 
-		// 3. compare the two sets of dispatched jobs
-		if (nextDispatchedJobs != dispatchedJobs || nextStateQueues != queues) {
-			log<LOG_INFO>("-------------------------");
-			return fromState.getTimeStamp();
-		} else {
-			return peekState(queues, fromState);
+			// 3. compare the two sets of dispatched jobs
+			if (nextDispatchedJobs != dispatchedJobs || nextStateQueues != queues) {
+				log<LOG_INFO>("-------------------------");
+				return fromState.getTimeStamp();
+			}
 		}
 	}
 
@@ -617,7 +619,7 @@ public:
 	}
 
 	std::unordered_map<std::string, Interval<Time>>
-	makeAvailableResourcesMap(queue<Time> rq, state<Time> currentState) {
+	makeAvailableResourcesMap(const queue<Time> &rq, const state<Time> &currentState) {
 		// make a map of available resources
 		// key: resource name (e.g. "P1")
 		// value: interval of possible available resources (e.g. [1, 10] 1: certainly available, 10: possibly available)
@@ -628,7 +630,7 @@ public:
 			// Since job is on the queue, one of the resources is certainly available
 			unsigned int certainlyAvailableResources = 0;
 			unsigned int possiblyAvailableResources = 0;
-			for (auto &seg: rq.getElementsByID()) {
+			for (const auto &seg: rq.getElementsByID()) {
 				auto it = jobsByID.find(seg);
 				if (it != jobsByID.end()) {
 					auto seg_processors_ID = it->second.getAssignedProcessorSet();
@@ -663,7 +665,7 @@ public:
 	}
 
 	std::vector<std::unordered_map<std::string, unsigned int>> makeAllCombinationsOfAvailableResources(
-			std::unordered_map<std::string, Interval<Time>> availableResources) {
+			std::unordered_map<std::string, Interval<Time>> &availableResources) {
 		// make a vector of all possible combinations of number of available resources
 		std::vector<std::unordered_map<std::string, unsigned int>> combinationsMap;
 		// make a vector of possible number of available resources range

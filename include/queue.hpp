@@ -136,7 +136,7 @@ struct queue {
         return elements.size();
     }
 
-    std::vector<jobID> getElementsByID() {
+    std::vector<jobID> getElementsByID() const {
         return elements;
     }
 };
