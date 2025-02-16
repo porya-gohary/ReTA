@@ -42,7 +42,7 @@ class transitionSystem {
 	typedef IntervalLookupTable<Time, job<Time>, job<Time>::schedulingWindow> Jobs_lut;
 
 private:
-	std::unordered_map<stateID, state<Time>> statesByID;
+	std::unordered_map<stateID, std::unique_ptr<state<Time>>> statesByID;
 	jobMapByID jobsByID;
 	jobRefMapByID jobRefsByID;
 	Jobs_lut _jobsByWin;
@@ -149,8 +149,8 @@ public:
 
 			// sort states by time stamp
 			std::sort(explorableLeaves.begin(), explorableLeaves.end(), [this](stateID a, stateID b) {
-				return statesByID.find(a)->second.getTimeStamp() <
-					   statesByID.find(b)->second.getTimeStamp();
+				return statesByID.find(a)->second->getTimeStamp() <
+					   statesByID.find(b)->second->getTimeStamp();
 			});
 
 
@@ -161,18 +161,18 @@ public:
 				break;
 
 			// get the time stamp of the state
-			Time t = statesByID.find(sID)->second.getTimeStamp();
+			Time t = statesByID.find(sID)->second->getTimeStamp();
 
 			// remove the leaf states with higher time stamp
 			explorableLeaves.erase(std::remove_if(explorableLeaves.begin(), explorableLeaves.end(),
 												  [this, t](stateID sID) {
-													  return statesByID.find(sID)->second.getTimeStamp() > t;
+													  return statesByID.find(sID)->second->getTimeStamp() > t;
 												  }), explorableLeaves.end());
 
 			// sort states by the number of dispatched jobs
 			std::sort(explorableLeaves.begin(), explorableLeaves.end(), [this](stateID a, stateID b) {
-				return statesByID.find(a)->second.getNumberOfDispatchedJobs() <
-					   statesByID.find(b)->second.getNumberOfDispatchedJobs();
+				return statesByID.find(a)->second->getNumberOfDispatchedJobs() <
+					   statesByID.find(b)->second->getNumberOfDispatchedJobs();
 			});
 
 			// get state ID with the lowest time stamp and the number of dispatched jobs for exploration
@@ -183,7 +183,7 @@ public:
 
 
 			//get the state
-			state<Time> s = statesByID.find(sID)->second;
+			state<Time> &s = *(statesByID.find(sID)->second);
 
 			//check the timeout
 			checkTimeout();
@@ -225,10 +225,10 @@ public:
 
 		}
 
-		state<Time> s(resourceSet, eventTimes, systemEvents.isCompletionEvent());
-		statesByID.emplace(numStates, s);
+		auto s = std::make_unique<state<Time>>(resourceSet, eventTimes, systemEvents.isCompletionEvent());
 //        statesByKey.emplace(s.getKey(), s);
-		transitionStructure.addNode(-1, s.getTimeStamp(), s.getStateLabel(), "");
+		transitionStructure.addNode(-1, s->getTimeStamp(), s->getStateLabel(), "");
+		statesByID.emplace(numStates, std::move(s));
 		numStates++;
 	}
 
@@ -328,18 +328,17 @@ public:
 		//calculate the earliest and latest finish time of the job
 		Interval<Time> ftimes = job.getCost() + s.getTimeStamp();
 
-		state<Time> newState(s, numStates, job, indexOf(job),
-							 job.getAssignedProcessorSet(), ftimes);
+		auto newState = std::make_unique<state<Time>>(s, numStates, job, indexOf(job), job.getAssignedProcessorSet(), ftimes);
 		if (!beNaive) {
-			if (tryToMergeStates(newState, s.getStateID(), sid.string())) {
+			if (tryToMergeStates(*newState, s.getStateID(), sid.string())) {
 				updateResponseTime(sid, ftimes);
 				return;
 			}
 		}
 		log<LOG_INFO>("New state is created");
-		statesByID.emplace(numStates, newState);
-		transitionStructure.addNode(s.getStateID(), newState.getTimeStamp(), newState.getStateLabel(),
+		transitionStructure.addNode(s.getStateID(), newState->getTimeStamp(), newState->getStateLabel(),
 									sid.string());
+		statesByID.emplace(numStates, std::move(newState));
 		numStates++;
 
 		updateResponseTime(sid, ftimes);
@@ -355,17 +354,17 @@ public:
 		}
 
 		log<LOG_INFO>("Time transition to %1% from state %2%") % nextEventTime % s.getStateID();
-		state<Time> newState(s, numStates, nextEventTime);
+		auto newState = std::make_unique<state<Time>>(s, numStates, nextEventTime);
 		if (!beNaive) {
-			if (tryToMergeStates(newState, s.getStateID(), std::to_string(nextEventTime - s.getTimeStamp()))) {
+			if (tryToMergeStates(*newState, s.getStateID(), std::to_string(nextEventTime - s.getTimeStamp()))) {
 				log<LOG_INFO>("Merged with an existing state");
 				return;
 			}
 		}
-		statesByID.emplace(numStates, newState);
 //        statesByKey.emplace(newState.getKey(), newState);
-		transitionStructure.addNode(s.getStateID(), newState.getTimeStamp(), newState.getStateLabel(),
+		transitionStructure.addNode(s.getStateID(), newState->getTimeStamp(), newState->getStateLabel(),
 									std::to_string(nextEventTime - s.getTimeStamp()));
+		statesByID.emplace(numStates, std::move(newState));
 		numStates++;
 
 
@@ -378,13 +377,13 @@ public:
 		for (const auto &id: leaves) {
 			// check if the state can be merged with any of the leaf states
 			auto it = statesByID.find(id);
-			if (it != statesByID.end() && it->second.tryToMerge(s)) {
+			if (it != statesByID.end() && it->second->tryToMerge(s)) {
 				// we have merged the states
 				// we need to update the transition structure
-				transitionStructure.updateNodeLabel(it->second.getStateID(), it->second.getStateLabel());
+				transitionStructure.updateNodeLabel(it->second->getStateID(), it->second->getStateLabel());
 				// make a new edge from the parent of s to the existing state
-				transitionStructure.addEdge(parentID, it->second.getStateID(), transitionLabel);
-				log<LOG_INFO>("Merged with an existing state: %1%") % it->second.getStateLabel();
+				transitionStructure.addEdge(parentID, it->second->getStateID(), transitionLabel);
+				log<LOG_INFO>("Merged with an existing state: %1%") % it->second->getStateLabel();
 				return true;
 			}
 		}
@@ -403,7 +402,8 @@ public:
 		for (const auto &q: queues) {
 			auto rq = queue<Time>(jobsByID, q);
 			auto rangeOfAvailableResources = makeAvailableResourcesMap(rq, fromState);
-			auto allAvailableResourcesCombinations = makeAllCombinationsOfAvailableResources(rangeOfAvailableResources);
+			auto allAvailableResourcesCombinations = makeAllCombinationsOfAvailableResources(
+					rangeOfAvailableResources);
 			for (const auto &availableResources: allAvailableResourcesCombinations) {
 				auto selectedJob = schedulingPolicy.callScheduler(rq, availableResources, fromState.getTimeStamp());
 				if (selectedJob != std::nullopt) {
@@ -450,18 +450,18 @@ public:
 	// update number of dispatched jobs
 	void updateNumDispatchedJobs(const std::vector<stateID> &stateIDs) {
 		for (auto &sID: stateIDs) {
-			auto s = statesByID.find(sID);
-			numDispatchedJob = std::min(numDispatchedJob, s->second.getNumberOfDispatchedJobs());
+			auto &s = *(statesByID.find(sID)->second);
+			numDispatchedJob = std::min(numDispatchedJob, s.getNumberOfDispatchedJobs());
 		}
 	}
 
 	// find explorable state
 	stateID findExplorableState(std::vector<stateID> &stateIDs) {
 		// find the first explorable state
-		for (int i = 0; i < stateIDs.size(); i++) {
-			auto s = statesByID.find(stateIDs[i]);
-			if (s->second.getNumberOfDispatchedJobs() != jobs.size()) {
-				return stateIDs[i];
+		for (const auto &id: stateIDs) {
+			auto s = statesByID.find(id);
+			if (s != statesByID.end() && s->second->getNumberOfDispatchedJobs() != jobs.size()) {
+				return id;
 			}
 		}
 		completed = true;
@@ -473,8 +473,8 @@ public:
 		std::vector<stateID> explorableStates;
 		explorableStates.reserve(stateIDs.size());
 		for (auto &sID: stateIDs) {
-			auto s = statesByID.find(sID);
-			if (s->second.getNumberOfDispatchedJobs() != jobs.size()) {
+			auto it = statesByID.find(sID);
+			if (it != statesByID.end() && it->second->getNumberOfDispatchedJobs() != jobs.size()) {
 				explorableStates.emplace_back(sID);
 			}
 		}

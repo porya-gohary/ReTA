@@ -51,10 +51,12 @@ public:
 			  eventSet(from.eventSet), completionEvents(from.completionEvents),
 			  processorAvailability(from.processorAvailability) {
 		stateID = id;
-#ifdef COLLECT_TLTS_GRAPH
+#if defined(COLLECT_TLTS_GRAPH) || defined(DEBUG)
 		dispatchedPointer.push_back(&s);
+
+		// for now, we don't need this because we do not consider dependencies
+		 jobsFinishTimes.emplace(s.getID(), finishTime);
 #endif
-		jobsFinishTimes.emplace(s.getID(), finishTime);
 		if (completionEvents) {
 			addEvent(finishTime.min());
 			addEvent(finishTime.max());
