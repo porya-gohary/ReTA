@@ -7,6 +7,7 @@
 #include <deque>
 #include <unordered_map>
 #include <unordered_set>
+#include <queue>
 #include <optional>
 #include <algorithm>
 #include "state.hpp"
@@ -43,6 +44,17 @@ class transitionSystem {
 
 private:
 	std::unordered_map<stateID, std::unique_ptr<state<Time>>> statesByID;
+	std::priority_queue<stateID, std::vector<stateID>,
+		std::function<bool(stateID, stateID)>> explorableStates{
+		[this](stateID a, stateID b) {
+			const auto &stateA = statesByID.at(a);
+			const auto &stateB = statesByID.at(b);
+			if (stateA->getTimeStamp() == stateB->getTimeStamp()) {
+				return stateA->getNumberOfDispatchedJobs() > stateB->getNumberOfDispatchedJobs();
+			}
+			return stateA->getTimeStamp() > stateB->getTimeStamp();
+		}
+	};
 	jobMapByID jobsByID;
 	jobRefMapByID jobRefsByID;
 	Jobs_lut _jobsByWin;
@@ -144,43 +156,13 @@ public:
 			transitionStructure.freeMemory();
 #endif
 
-			// filter unexplorable states
-			auto explorableLeaves = findExplorableStates(leaves);
-
-			// sort states by time stamp
-			std::sort(explorableLeaves.begin(), explorableLeaves.end(), [this](stateID a, stateID b) {
-				return statesByID.find(a)->second->getTimeStamp() <
-					   statesByID.find(b)->second->getTimeStamp();
-			});
-
-
-			// get state ID with the lowest time stamp for exploration
-			stateID sID = findExplorableState(explorableLeaves);
-
-			if (completed)
+			if(explorableStates.empty()){
+				completed = true;
 				break;
+			}
 
-			// get the time stamp of the state
-			Time t = statesByID.find(sID)->second->getTimeStamp();
-
-			// remove the leaf states with higher time stamp
-			explorableLeaves.erase(std::remove_if(explorableLeaves.begin(), explorableLeaves.end(),
-												  [this, t](stateID sID) {
-													  return statesByID.find(sID)->second->getTimeStamp() > t;
-												  }), explorableLeaves.end());
-
-			// sort states by the number of dispatched jobs
-			std::sort(explorableLeaves.begin(), explorableLeaves.end(), [this](stateID a, stateID b) {
-				return statesByID.find(a)->second->getNumberOfDispatchedJobs() <
-					   statesByID.find(b)->second->getNumberOfDispatchedJobs();
-			});
-
-			// get state ID with the lowest time stamp and the number of dispatched jobs for exploration
-			sID = findExplorableState(explorableLeaves);
-
-
-
-
+			stateID sID = explorableStates.top();
+			explorableStates.pop();
 
 			//get the state
 			state<Time> &s = *(statesByID.find(sID)->second);
@@ -226,9 +208,9 @@ public:
 		}
 
 		auto s = std::make_unique<state<Time>>(resourceSet, eventTimes, systemEvents.isCompletionEvent());
-//        statesByKey.emplace(s.getKey(), s);
 		transitionStructure.addNode(-1, s->getTimeStamp(), s->getStateLabel(), "");
 		statesByID.emplace(numStates, std::move(s));
+		explorableStates.push(numStates);
 		numStates++;
 	}
 
@@ -338,7 +320,11 @@ public:
 		log<LOG_INFO>("New state is created");
 		transitionStructure.addNode(s.getStateID(), newState->getTimeStamp(), newState->getStateLabel(),
 									sid.string());
+		auto stateDispatchedJob = newState->getNumberOfDispatchedJobs();
 		statesByID.emplace(numStates, std::move(newState));
+		// if the number of dispatched jobs is lower than the number of jobs, we need to explore the new state later
+		if (stateDispatchedJob < jobs.size())
+			explorableStates.push(numStates);
 		numStates++;
 
 		updateResponseTime(sid, ftimes);
@@ -361,10 +347,14 @@ public:
 				return;
 			}
 		}
-//        statesByKey.emplace(newState.getKey(), newState);
+
 		transitionStructure.addNode(s.getStateID(), newState->getTimeStamp(), newState->getStateLabel(),
 									std::to_string(nextEventTime - s.getTimeStamp()));
+		auto stateDispatchedJob = newState->getNumberOfDispatchedJobs();
 		statesByID.emplace(numStates, std::move(newState));
+		// if the number of dispatched jobs is lower than the number of jobs, we need to explore the new state later
+		if (stateDispatchedJob < jobs.size())
+			explorableStates.push(numStates);
 		numStates++;
 
 
@@ -449,39 +439,11 @@ public:
 
 	// update number of dispatched jobs
 	void updateNumDispatchedJobs(const std::vector<stateID> &stateIDs) {
+		numDispatchedJob = jobs.size();
 		for (auto &sID: stateIDs) {
 			auto &s = *(statesByID.find(sID)->second);
 			numDispatchedJob = std::min(numDispatchedJob, s.getNumberOfDispatchedJobs());
 		}
-	}
-
-	// find explorable state
-	stateID findExplorableState(std::vector<stateID> &stateIDs) {
-		// find the first explorable state
-		for (const auto &id: stateIDs) {
-			auto s = statesByID.find(id);
-			if (s != statesByID.end() && s->second->getNumberOfDispatchedJobs() != jobs.size()) {
-				return id;
-			}
-		}
-		completed = true;
-		return -1;
-	}
-
-	// find explorable states
-	std::vector<stateID> findExplorableStates(std::vector<stateID> &stateIDs) {
-		std::vector<stateID> explorableStates;
-		explorableStates.reserve(stateIDs.size());
-		for (auto &sID: stateIDs) {
-			auto it = statesByID.find(sID);
-			if (it != statesByID.end() && it->second->getNumberOfDispatchedJobs() != jobs.size()) {
-				explorableStates.emplace_back(sID);
-			}
-		}
-		if (explorableStates.empty()) {
-			completed = true;
-		}
-		return explorableStates;
 	}
 
 	// update the response time of the job
