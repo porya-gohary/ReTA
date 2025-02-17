@@ -16,6 +16,8 @@ private:
 	Time timeStamp;
 	// set of dispatched jobs
 	indexSet dispatched;
+	// number of dispatched jobs
+	unsigned long numDispatchedJob;
 	// set of dispatched jobs with pointers (only for debugging and visualization)
 	std::vector<const job<Time> *> dispatchedPointer;
 	// set of finish times for dispatched jobs
@@ -32,7 +34,7 @@ private:
 public:
 	// initial state -- nothing yet has dispatched, processors are all available
 	state(const std::vector<unsigned int> &resourceSet, std::set<Time> eventSet, bool completionEvents)
-			: timeStamp(0), stateID(0), dispatched(),
+			: timeStamp(0), stateID(0), dispatched(),numDispatchedJob(0),
 			  eventSet(eventSet), completionEvents(completionEvents), lookupKey(0x9a9a9a9a9a9a9a9aUL) {
 		for (auto &resource: resourceSet) {
 			processorAvailability.push_back(std::vector<Interval<Time>>());
@@ -46,7 +48,7 @@ public:
 	// dispatch transition: new state by scheduling a job in an existing state globally
 	state(const state &from, unsigned long id, const job<Time> &s, const std::size_t &jobIndex, std::size_t processor,
 		  Interval<Time> finishTime)
-			: timeStamp(from.timeStamp), dispatched{from.dispatched, jobIndex},
+			: timeStamp(from.timeStamp), dispatched{from.dispatched, jobIndex},numDispatchedJob(from.numDispatchedJob + 1),
 			  dispatchedPointer(from.dispatchedPointer), jobsFinishTimes(from.jobsFinishTimes),
 			  eventSet(from.eventSet), completionEvents(from.completionEvents),
 			  processorAvailability(from.processorAvailability) {
@@ -91,7 +93,7 @@ public:
 
 	// time transition: new state by advancing time in an existing state
 	state(const state &from, unsigned long id, Time time)
-			: timeStamp(time), dispatched(from.dispatched), jobsFinishTimes(from.jobsFinishTimes),
+			: timeStamp(time), dispatched(from.dispatched),numDispatchedJob(from.numDispatchedJob), jobsFinishTimes(from.jobsFinishTimes),
 			  processorAvailability(from.processorAvailability), eventSet(from.eventSet),
 			  completionEvents(from.completionEvents), lookupKey(from.getLookupKey()) {
 		stateID = id;
@@ -118,7 +120,7 @@ public:
 	}
 
 	unsigned long getNumberOfDispatchedJobs() const {
-		return dispatched.size();
+		return numDispatchedJob;
 	}
 
 	// get processor availability
