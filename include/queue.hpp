@@ -13,7 +13,8 @@ enum sortKey {
     cost_max,
     deadline,
     priority,
-    period
+    period,
+	laxity
 };
 
 template<class Time>
@@ -25,7 +26,7 @@ struct queue {
             segmentsByID(segmentsByID), elements(elements) {}
 
 
-    void sort(sortKey key) {
+    void sort(sortKey key, Time currentTime = 0) {
         switch (key) {
             case arrival_min:
                 std::sort(elements.begin(), elements.end(), [this](jobID a, jobID b) {
@@ -112,7 +113,20 @@ struct queue {
                                && a.job < b.job);
                 });
                 break;
+			case laxity:
+				std::sort(elements.begin(), elements.end(), [this, currentTime](jobID a, jobID b) {
+					auto a_segment = segmentsByID.find(a)->second;
+					auto b_segment = segmentsByID.find(b)->second;
 
+					auto a_laxity = a_segment.getDeadline() - currentTime - a_segment.getCost().max();
+					auto b_laxity = b_segment.getDeadline() - currentTime - b_segment.getCost().max();
+
+					return a_laxity < b_laxity
+						   || (a_laxity == b_laxity && a.task < b.task)
+						   || (a_laxity == b_laxity && a.task == b.task
+							   && a.job < b.job);
+				});
+				break;
         }
     }
 
