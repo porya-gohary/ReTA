@@ -60,3 +60,11 @@ jobs:
       - name: Run example3
         run: | 
           ./build/reta
+
+      - name: Build example4
+        run: |
+          ./compile.sh -i ./example/example4.redo
+
+      - name: Run example4
+        run: |
+          ./build/reta
