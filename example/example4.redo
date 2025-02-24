@@ -1,0 +1,35 @@
+system {
+    // Define the time model (discrete or dense)
+    time_model.set(discrete);
+    // Define the event set
+    events.set(all);
+    resource {
+        // CPU
+        p1 := processor( ncores = 2 );
+        // GPU
+        p2 := processor( ncores = 3 );
+        // DSP
+        p3 := processor( ncores = 1 );
+    }
+    workload {
+        // Define periodic tasks
+        t1 := task( jitter= 5, period= 100, cost = I[32,50], deadline = 100, processor = p1 ); // Planner
+        t2 := task( jitter= 5, period= 100, cost = I[18,45], deadline = 100, processor = p1 ); // Control
+        t3 := task( jitter= 5, period= 250, cost = I[30,65], deadline = 250, processor = p1 ); // EFK
+
+        t4 := task( jitter= 5, period= 500, cost = I[250,280], deadline = 500, processor = p2 ); // Detection
+        t5 := task( jitter= 5, period= 500, cost = I[189,250], deadline = 500, processor = p2 ); // Fusion
+        t6 := task( jitter= 5, period= 500, cost = I[220,280], deadline = 500, processor = p2 ); // Tracking
+
+
+        t7 := task( jitter= 5, period= 500, cost = I[50,70], deadline = 500, processor = p3 ); // GPS
+        t8 := task( jitter= 5, period= 500, cost = I[100,120], deadline = 500, processor = p3 ); // Lidar
+        t9 := task( jitter= 5, period= 250, cost = I[18,20], deadline = 250, processor = p3 ); // Camera
+
+    }
+    scheduler {
+        queue := ready_queue();
+        queue.sort(laxity);
+        return queue.front();
+    }
+}

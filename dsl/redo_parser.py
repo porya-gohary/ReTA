@@ -123,8 +123,11 @@ def scheduler_commands_handler(commands, line_tabs="\t\t"):
         if c.__class__.__name__ == "Queue_command":
             if c.command is not None:
                 if c.command.name == "sort":
-                    cpp_scheduler_template[14] += line_tabs + "readyQueue.sort(sortKey::" + \
-                                                  c.command.key + ");" + "\n"
+                    cpp_scheduler_template[14] += (line_tabs + "readyQueue.sort(sortKey::" + c.command.key)
+                    # if it is laxity, then we need to pass the current time also
+                    if c.command.key == "laxity":
+                        cpp_scheduler_template[14] += ", currentTime"
+                    cpp_scheduler_template[14] += ");" + "\n"
                 else:
                     print("Error: queue command not found!")
             elif c.func is not None:

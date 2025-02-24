@@ -15,7 +15,7 @@ system {
     scheduler {
         queue := ready_queue();
         time := current_time();
-        queue.sort(deadline);
+        queue.sort(period);
         int x = p.available_instance();
         if (x > 1){
             return queue.front();

@@ -56,7 +56,7 @@ Resource_functions:
 ;
 
 Keys:
-    'arrival_min' | 'arrival_max' | 'deadline' | 'cost_min' | 'cost_max'
+    'arrival_min' | 'arrival_max' | 'deadline' | 'cost_min' | 'cost_max' | 'period' | 'laxity'
 ;
 
 Resources:
