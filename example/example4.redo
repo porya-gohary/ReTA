@@ -13,12 +13,12 @@ system {
     }
     workload {
         // Define periodic tasks
-        t1 := task( jitter= 5, period= 100, cost = I[32,50], deadline = 100, processor = p1 ); // Planner
-        t2 := task( jitter= 5, period= 100, cost = I[18,45], deadline = 100, processor = p1 ); // Control
+        t1 := task( jitter= 5, period= 100, cost = I[18,45], deadline = 100, processor = p1 ); // Control
+        t2 := task( jitter= 5, period= 100, cost = I[32,50], deadline = 100, processor = p1 ); // Planner
         t3 := task( jitter= 5, period= 250, cost = I[30,65], deadline = 250, processor = p1 ); // EFK
 
-        t4 := task( jitter= 5, period= 500, cost = I[250,280], deadline = 500, processor = p2 ); // Detection
-        t5 := task( jitter= 5, period= 500, cost = I[189,250], deadline = 500, processor = p2 ); // Fusion
+        t4 := task( jitter= 5, period= 500, cost = I[189,250], deadline = 500, processor = p2 ); // Fusion
+        t5 := task( jitter= 5, period= 500, cost = I[250,280], deadline = 500, processor = p2 ); // Detection
         t6 := task( jitter= 5, period= 500, cost = I[220,280], deadline = 500, processor = p2 ); // Tracking
 
 
